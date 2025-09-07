@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>薛導自制即夢AI提示词工具</title>
+    <title>即夢AI提示词工具</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
@@ -462,6 +462,33 @@
             transform: translateX(0);
         }
         
+        /* 创意选项样式 */
+        .creative-options-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-top: 8px;
+        }
+        
+        .creative-option {
+            display: flex;
+            align-items: center;
+            background: #e9ecef;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.8rem;
+        }
+        
+        .creative-option:hover {
+            background: #dee2e6;
+        }
+        
+        .creative-option input {
+            margin-right: 6px;
+        }
+        
         @media (min-width: 768px) {
             .container {
                 max-width: 750px;
@@ -483,11 +510,19 @@
                 font-size: 1.1rem;
                 max-width: 80%;
             }
+            
+            .creative-options-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
         }
         
         @media (min-width: 1200px) {
             .container {
                 max-width: 1140px;
+            }
+            
+            .creative-options-grid {
+                grid-template-columns: repeat(4, 1fr);
             }
         }
     </style>
@@ -612,6 +647,14 @@
                         <label class="checkbox-item">
                             <input type="checkbox" value="高对比度"> 高对比度
                         </label>
+                    </div>
+                </div>
+                
+                <!-- 新增创意选项部分 -->
+                <div class="control-group">
+                    <h3><i class="fas fa-lightbulb"></i> 创意选项</h3>
+                    <div class="creative-options-grid" id="creativeOptions">
+                        <!-- 这里将通过JavaScript动态添加 -->
                     </div>
                 </div>
                 
@@ -791,6 +834,18 @@
             }
         };
         
+        // 创意选项数据
+        const creativeOptions = [
+            "表情包风格", "卡通化", "像素艺术", "水彩画", "油画", 
+            "素描", "涂鸦", "赛博朋克", "蒸汽朋克", "复古未来主义",
+            "抽象艺术", "极简主义", "超现实主义", "梦幻风格", "科幻风格",
+            "奇幻风格", "恐怖风格", "浪漫主义", "现实主义", "印象派",
+            "点彩派", "波普艺术", "装饰艺术", "3D渲染", "低多边形",
+            "霓虹灯效果", "全息效果", "故障艺术", "拼贴画", "中国风",
+            "动漫风格", "漫画风格", "手绘风格", "矢量艺术", "粘土动画",
+            "纸艺风格", "刺绣风格", "木刻版画", "石版画", "涂鸦墙艺术"
+        ];
+        
         // DOM元素
         const basicPrompt = document.getElementById('basicPrompt');
         const styleSelect = document.getElementById('styleSelect');
@@ -819,6 +874,20 @@
         const historySection = document.getElementById('historySection');
         const historyList = document.getElementById('historyList');
         const notification = document.getElementById('notification');
+        const creativeOptionsContainer = document.getElementById('creativeOptions');
+        
+        // 初始化创意选项
+        function initCreativeOptions() {
+            creativeOptions.forEach(option => {
+                const label = document.createElement('label');
+                label.className = 'creative-option';
+                label.innerHTML = `
+                    <input type="checkbox" value="${option}">
+                    ${option}
+                `;
+                creativeOptionsContainer.appendChild(label);
+            });
+        }
         
         // 初始化历史记录
         let promptHistory = JSON.parse(localStorage.getItem('promptHistory')) || [];
@@ -1111,6 +1180,7 @@
         saveBtn.addEventListener('click', saveToHistory);
         
         // 初始化
+        initCreativeOptions();
         updateCreativityIndicator(creativitySlider.value);
         
         // 初始化进阶设置滑块值
