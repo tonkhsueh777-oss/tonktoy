@@ -55,6 +55,39 @@ $$('.crop-handle').forEach((handle) => {
   handle.style.display = 'none';
 });
 
+const zoomBar = document.createElement('div');
+zoomBar.id = 'zoomControls';
+zoomBar.innerHTML = `
+  <button id="zoomOutBtn" type="button" aria-label="缩小原图">−</button>
+  <span class="zoom-label">原图缩放</span>
+  <input id="zoomRange" type="range" min="100" max="400" step="1" value="100" disabled />
+  <button id="zoomInBtn" type="button" aria-label="放大原图">＋</button>
+  <strong id="zoomValue">100%</strong>
+  <span class="zoom-help">放大后可拖动原图调整构图</span>
+`;
+E.stage.insertAdjacentElement('afterend', zoomBar);
+const Z = {
+  bar: zoomBar,
+  out: $('#zoomOutBtn'),
+  input: $('#zoomRange'),
+  in: $('#zoomInBtn'),
+  value: $('#zoomValue'),
+};
+const zoomStyle = document.createElement('style');
+zoomStyle.textContent = `
+  #zoomControls{display:flex;align-items:center;gap:10px;padding:10px 4px 2px;color:#8fa5bd;font-size:12px}
+  #zoomControls button{width:32px;height:30px;border:1px solid #203650;border-radius:7px;background:#0c1725;color:#edf5ff;cursor:pointer;font-size:18px;line-height:1}
+  #zoomControls button:disabled,#zoomControls input:disabled{opacity:.4;cursor:not-allowed}
+  #zoomControls .zoom-label{white-space:nowrap;color:#b9c7d7}
+  #zoomControls input{flex:1;min-width:120px;accent-color:#1677ff}
+  #zoomControls strong{min-width:44px;text-align:right;color:#edf5ff}
+  #zoomControls .zoom-help{white-space:nowrap;color:#667f9c}
+  @media(max-width:900px){#zoomControls{flex-wrap:wrap}.zoom-help{width:100%}}
+`;
+document.head.appendChild(zoomStyle);
+E.stage.style.cursor = 'grab';
+E.stage.title = '拖动原图调整位置；滚轮或下方滑杆缩放';
+
 const S = {
   file: null,
   srcUrl: null,
@@ -190,8 +223,10 @@ function drawImageView() {
 
 function clampViewIntoFrame() {
   if (!S.crop) return;
-  if (S.view.width < S.crop.width || S.view.height < S.crop.height) {
-    const nextScale = Math.max(S.crop.width / S.nw, S.crop.height / S.nh, S.view.scale);
+  const minWidth = S.crop.width;
+  const minHeight = S.crop.height;
+  if (S.view.width < minWidth || S.view.height < minHeight) {
+    const nextScale = Math.max(minWidth / S.nw, minHeight / S.nh, S.view.scale);
     S.view.scale = nextScale;
     S.view.width = S.nw * nextScale;
     S.view.height = S.nh * nextScale;
@@ -212,6 +247,36 @@ function resetImageView() {
   S.view.y = S.crop.y + (S.crop.height - S.view.height) / 2;
   clampViewIntoFrame();
   drawImageView();
+  updateZoomUI();
+}
+
+function updateZoomUI() {
+  if (!S.file || !S.fitScale) {
+    Z.input.value = '100';
+    Z.value.textContent = '100%';
+    return;
+  }
+  const percent = Math.round((S.view.scale / S.fitScale) * 100);
+  Z.input.value = String(clamp(percent, 100, 400));
+  Z.value.textContent = `${clamp(percent, 100, 400)}%`;
+}
+
+function setZoomPercent(percent, message = '已缩放原图，请按「确认裁切」。') {
+  if (!S.file || !S.crop || !S.fitScale) return;
+  const nextPercent = clamp(Number(percent) || 100, 100, 400);
+  const anchorX = S.crop.x + S.crop.width / 2;
+  const anchorY = S.crop.y + S.crop.height / 2;
+  const relX = (anchorX - S.view.x) / S.view.width;
+  const relY = (anchorY - S.view.y) / S.view.height;
+  S.view.scale = S.fitScale * (nextPercent / 100);
+  S.view.width = S.nw * S.view.scale;
+  S.view.height = S.nh * S.view.scale;
+  S.view.x = anchorX - relX * S.view.width;
+  S.view.y = anchorY - relY * S.view.height;
+  clampViewIntoFrame();
+  drawImageView();
+  updateZoomUI();
+  markDirty(message);
 }
 
 function markDirty(message = '已调整原图位置或缩放，请按「确认裁切」。') {
@@ -343,6 +408,10 @@ function clearImage(show = true) {
   E.clear.disabled = true;
   E.apply.disabled = true;
   E.download.disabled = true;
+  Z.input.disabled = true;
+  Z.out.disabled = true;
+  Z.in.disabled = true;
+  updateZoomUI();
   if (show) setStatus('已清除图片。');
 }
 
@@ -376,6 +445,14 @@ async function load(file) {
   E.fit.disabled = false;
   E.clear.disabled = false;
   E.apply.disabled = false;
+  Z.input.disabled = false;
+  Z.out.disabled = false;
+  Z.in.disabled = false;
+  const dims = validDims();
+  if (!dims) {
+    E.w.value = S.nw;
+    E.h.value = S.nh;
+  }
   S.outRatio = outputRatio();
   summary();
   requestAnimationFrame(() => requestAnimationFrame(async () => {
@@ -383,7 +460,7 @@ async function load(file) {
     drawCropFrame();
     resetImageView();
     await confirmCrop();
-    setStatus('先设定尺寸，再拖动或滚轮缩放原图，然后按「确认裁切」。', 'success');
+    setStatus('请先设定尺寸，再拖动或使用下方缩放滑杆调整原图，然后按「确认裁切」。', 'success');
   }));
 }
 
@@ -393,7 +470,10 @@ function selectRatio(aspect, button) {
   if (aspect !== 'free') {
     const ratio = Number(aspect);
     if (Number.isFinite(ratio) && ratio > 0) {
-      if (dims && E.lock.checked) E.h.value = Math.max(1, Math.round(Number(E.w.value) / ratio));
+      if (dims) {
+        if (E.lock.checked) E.h.value = Math.max(1, Math.round(Number(E.w.value) / ratio));
+        else E.w.value = Math.max(1, Math.round(Number(E.h.value) * ratio));
+      }
       S.outRatio = ratio;
     }
   } else if (dims) {
@@ -477,6 +557,7 @@ function startPan(event) {
   event.preventDefault();
   S.dragging = { id: event.pointerId, startX: event.clientX, startY: event.clientY, x: S.view.x, y: S.view.y };
   E.stage.setPointerCapture?.(event.pointerId);
+  E.stage.style.cursor = 'grabbing';
 }
 
 function movePan(event) {
@@ -492,27 +573,16 @@ function movePan(event) {
 function endPan(event) {
   if (!S.dragging || event.pointerId !== S.dragging.id) return;
   S.dragging = null;
+  E.stage.style.cursor = 'grab';
   markDirty('已移动原图，请按「确认裁切」。');
 }
 
 function zoomImage(event) {
   if (!S.file || !S.crop) return;
   event.preventDefault();
-  const rect = stageRect();
-  const pointerX = event.clientX - rect.left;
-  const pointerY = event.clientY - rect.top;
-  const factor = event.deltaY < 0 ? 1.06 : 0.94;
-  const nextScale = clamp(S.view.scale * factor, S.fitScale, S.fitScale * 12);
-  const relX = (pointerX - S.view.x) / S.view.width;
-  const relY = (pointerY - S.view.y) / S.view.height;
-  S.view.scale = nextScale;
-  S.view.width = S.nw * nextScale;
-  S.view.height = S.nh * nextScale;
-  S.view.x = pointerX - relX * S.view.width;
-  S.view.y = pointerY - relY * S.view.height;
-  clampViewIntoFrame();
-  drawImageView();
-  markDirty('已缩放原图，请按「确认裁切」。');
+  const currentPercent = (S.view.scale / S.fitScale) * 100;
+  const delta = event.deltaY < 0 ? 8 : -8;
+  setZoomPercent(currentPercent + delta);
 }
 
 const openPicker = () => E.file.click();
@@ -554,6 +624,9 @@ E.presets.onclick = (event) => {
   const button = event.target.closest('button[data-width]');
   if (button) applyPreset(button);
 };
+Z.input.addEventListener('input', () => setZoomPercent(Z.input.value));
+Z.out.addEventListener('click', () => setZoomPercent((S.view.scale / S.fitScale) * 100 - 10));
+Z.in.addEventListener('click', () => setZoomPercent((S.view.scale / S.fitScale) * 100 + 10));
 E.stage.addEventListener('pointerdown', startPan);
 window.addEventListener('pointermove', movePan, { passive: false });
 window.addEventListener('pointerup', endPan);
@@ -586,4 +659,6 @@ window.addEventListener('beforeunload', () => {
   if (S.previewUrl) URL.revokeObjectURL(S.previewUrl);
 });
 
+Z.out.disabled = true;
+Z.in.disabled = true;
 summary();
