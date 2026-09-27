@@ -21,19 +21,11 @@
         </div>
       </div>
       <nav class="mode-tabs" aria-label="处理模式">
-        <button class="mode-tab active" type="button">
-          <span class="tab-icon">▣</span> 单张处理
-        </button>
-        <button class="mode-tab disabled" type="button" disabled title="即将推出">
-          <span class="tab-icon">▱</span> 批量处理 <span class="coming">即将推出</span>
-        </button>
-        <button class="mode-tab disabled" type="button" disabled title="即将推出">
-          <span class="gif-badge">GIF</span> GIF 动图 <span class="coming">即将推出</span>
-        </button>
+        <button class="mode-tab active" type="button"><span class="tab-icon">▣</span> 单张处理</button>
+        <button class="mode-tab disabled" type="button" disabled title="即将推出"><span class="tab-icon">▱</span> 批量处理 <span class="coming">即将推出</span></button>
+        <button class="mode-tab disabled" type="button" disabled title="即将推出"><span class="gif-badge">GIF</span> GIF 动图 <span class="coming">即将推出</span></button>
       </nav>
-      <div class="privacy-pill" title="图片不会上传服务器">
-        <span class="privacy-dot"></span> 本机处理
-      </div>
+      <div class="privacy-pill" title="图片不会上传服务器"><span class="privacy-dot"></span> 本机处理</div>
     </header>
 
     <main class="workspace">
@@ -61,10 +53,7 @@
         </section>
 
         <section class="control-section">
-          <div class="section-heading">
-            <h2>尺寸设置</h2>
-            <label class="check-label"><input id="lockRatio" type="checkbox" checked /> <span>锁定比例</span></label>
-          </div>
+          <div class="section-heading"><h2>尺寸设置</h2><label class="check-label"><input id="lockRatio" type="checkbox" checked /> <span>锁定比例</span></label></div>
           <div class="dimension-grid">
             <label>宽度<div class="number-field"><input id="outputWidth" type="number" min="1" max="12000" inputmode="numeric" value="1200" /><span>px</span></div></label>
             <label>高度<div class="number-field"><input id="outputHeight" type="number" min="1" max="12000" inputmode="numeric" value="750" /><span>px</span></div></label>
@@ -92,14 +81,8 @@
       <section class="main-column">
         <div class="panel editor-card">
           <div class="editor-toolbar">
-            <div class="file-meta">
-              <strong id="sourceName">尚未选择图片</strong>
-              <span id="sourceInfo">—</span>
-            </div>
-            <div class="toolbar-actions">
-              <button id="fitBtn" class="icon-button" type="button" disabled title="重新适配">适配</button>
-              <button id="clearBtn" class="icon-button" type="button" disabled title="清除图片">清除</button>
-            </div>
+            <div class="file-meta"><strong id="sourceName">尚未选择图片</strong><span id="sourceInfo">—</span></div>
+            <div class="toolbar-actions"><button id="fitBtn" class="icon-button" type="button" disabled title="重新适配">适配</button><button id="clearBtn" class="icon-button" type="button" disabled title="清除图片">清除</button></div>
           </div>
 
           <div id="editorStage" class="editor-stage" aria-label="图片裁切编辑区">
@@ -141,18 +124,12 @@
       <aside class="right-column">
         <section class="panel preview-card">
           <h2>处理后预览</h2>
-          <div class="preview-frame">
-            <div id="previewPlaceholder" class="preview-placeholder">等待图片</div>
-            <img id="previewImage" alt="处理后预览" />
-          </div>
+          <div class="preview-frame"><div id="previewPlaceholder" class="preview-placeholder">等待图片</div><img id="previewImage" alt="处理后预览" /></div>
           <div class="preview-meta" id="previewMeta">—</div>
 
           <div class="filename-block">
             <label for="filenameInput">文件名称</label>
-            <div class="filename-field">
-              <input id="filenameInput" type="text" value="image" maxlength="120" />
-              <span id="extensionLabel">.jpg</span>
-            </div>
+            <div class="filename-field"><input id="filenameInput" type="text" value="image" maxlength="120" /><span id="extensionLabel">.jpg</span></div>
             <label class="check-label keep-name"><input id="keepOriginalName" type="checkbox" /> <span>保留原档案名称（自动替换副档名）</span></label>
           </div>
 
@@ -166,16 +143,14 @@
             </dl>
           </div>
 
-          <button id="downloadBtn" class="download-button" type="button" disabled>
-            <span aria-hidden="true">↓</span> 下载图片
-          </button>
+          <button id="downloadBtn" class="download-button" type="button" disabled><span aria-hidden="true">↓</span> 下载图片</button>
         </section>
 
         <section class="panel tips-card">
           <h2><span aria-hidden="true">◉</span> 使用提示</h2>
           <ol>
             <li>图片在浏览器本机处理，不会上传服务器。</li>
-            <li>拖动裁切框或四角控制点调整范围。</li>
+            <li>设定尺寸后，可拖动原图并使用缩放滑杆调整构图。</li>
             <li>JPG / PNG / WebP 可互相转换。</li>
             <li>下载前可直接修改文件名称。</li>
           </ol>
@@ -184,6 +159,7 @@
     </main>
   </div>
 
-  <script type="module" src="./app.js"></script>
+  <script src="./app.js"></script>
+  <script src="./drag-fix.js"></script>
 </body>
 </html>
