@@ -1,4 +1,4 @@
-// Fix source-image positioning and dragging under a fixed crop frame.
+// Fix source-image positioning, dragging, and preview aspect under a fixed crop frame.
 (() => {
   // Root cause fix: the old drawImageView wrote `inset:auto` after left/top,
   // which reset left/top back to auto. Keep inset reset BEFORE coordinates.
@@ -20,6 +20,23 @@
     });
     updateReadout();
   };
+
+  // Keep the right-side preview frame in the same aspect ratio as the selected output size.
+  const previewFrame = E.preview?.closest('.preview-frame');
+  function syncPreviewAspect() {
+    if (!previewFrame) return;
+    const width = Number(E.w.value);
+    const height = Number(E.h.value);
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return;
+    previewFrame.style.aspectRatio = `${width} / ${height}`;
+  }
+
+  const originalSummary = summary;
+  summary = function summaryWithPreviewAspect() {
+    originalSummary();
+    syncPreviewAspect();
+  };
+  syncPreviewAspect();
 
   const stage = E.stage;
   let drag = null;
