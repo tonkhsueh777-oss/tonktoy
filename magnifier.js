@@ -178,3 +178,12 @@
 
   syncUI();
 })();
+
+// Load the final snapping correction after all crop-drag and guide handlers are registered.
+(() => {
+  if (document.querySelector('script[data-snap-fix]')) return;
+  const script = document.createElement('script');
+  script.src = './snap-fix.js?v=20260929-0120';
+  script.dataset.snapFix = 'true';
+  document.body.appendChild(script);
+})();
