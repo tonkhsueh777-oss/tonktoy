@@ -1,4 +1,4 @@
-// Fixed rulers + movable/resizable crop frame bounded by the source image.
+// Fixed rulers + movable/resizable crop frame bounded by the displayed source image.
 (() => {
   const stage = E.stage;
   const box = E.box;
@@ -23,6 +23,25 @@
       maxWidth: 'none', maxHeight: 'none', transform: 'none',
     });
     updateReadout();
+  };
+
+  // Important: moving or resizing the crop frame must NEVER resize the image.
+  // This replacement only repositions the current image when necessary to keep
+  // the crop frame covered. Image dimensions change only through explicit zoom/fit.
+  clampViewIntoFrame = function clampViewIntoFrameWithoutAutoScale() {
+    if (!S.crop || !S.view.width || !S.view.height) return;
+
+    if (S.view.width >= S.crop.width) {
+      const minX = S.crop.x + S.crop.width - S.view.width;
+      const maxX = S.crop.x;
+      S.view.x = Math.min(Math.max(S.view.x, minX), maxX);
+    }
+
+    if (S.view.height >= S.crop.height) {
+      const minY = S.crop.y + S.crop.height - S.view.height;
+      const maxY = S.crop.y;
+      S.view.y = Math.min(Math.max(S.view.y, minY), maxY);
+    }
   };
 
   const style = document.createElement('style');
@@ -115,15 +134,20 @@
     return { originX, originY, axisWidth, axisHeight, scale, xRange, yRange };
   }
 
-  // The white crop frame is bounded by the real source image, not by the extra ruler margin.
+  // Crop bounds follow the image as it is currently displayed on screen.
+  // If the user zooms or pans the image, these bounds move with it.
   function sourceBounds(g = rulerGeometry()) {
-    const sourceWidth = Math.max(1, Math.min(S.nw || g.xRange, g.xRange));
-    const sourceHeight = Math.max(1, Math.min(S.nh || g.yRange, g.yRange));
+    const workspaceRight = g.originX + g.axisWidth;
+    const workspaceBottom = g.originY + g.axisHeight;
+    const imageLeft = S.view.width ? S.view.x : g.originX;
+    const imageTop = S.view.height ? S.view.y : g.originY;
+    const imageRight = S.view.width ? S.view.x + S.view.width : g.originX + (S.nw || g.xRange) * g.scale;
+    const imageBottom = S.view.height ? S.view.y + S.view.height : g.originY + (S.nh || g.yRange) * g.scale;
     return {
-      left: g.originX,
-      top: g.originY,
-      right: g.originX + sourceWidth * g.scale,
-      bottom: g.originY + sourceHeight * g.scale,
+      left: Math.max(g.originX, imageLeft),
+      top: Math.max(g.originY, imageTop),
+      right: Math.min(workspaceRight, imageRight),
+      bottom: Math.min(workspaceBottom, imageBottom),
     };
   }
 
@@ -207,9 +231,9 @@
     const m=cropMetrics(); E.w.value=String(m.width); E.h.value=String(m.height); S.outRatio=m.width/m.height;
     summary(); syncPreviewAspect(); updateReadout();
   }
+
+  // Resizing/moving the crop frame must not touch the image view.
   function commitCrop(message) {
-    clampViewIntoFrame();
-    drawImageView();
     drawCropFrame();
     syncFieldsFromCrop();
     markDirty(message || '已调整裁切范围，请按「确认裁切」。');
@@ -223,6 +247,7 @@
     cropDrag={pointerId:event.pointerId,mode,startX:event.clientX,startY:event.clientY,crop:{...S.crop},bounds:sourceBounds(g)};
     box.setPointerCapture?.(event.pointerId);
   }
+
   function moveCropDrag(event) {
     if (!cropDrag || event.pointerId!==cropDrag.pointerId) return;
     event.preventDefault(); event.stopPropagation();
@@ -232,16 +257,17 @@
       x=Math.min(Math.max(c.x+dx,b.left),Math.max(b.left,b.right-c.width));
       y=Math.min(Math.max(c.y+dy,b.top),Math.max(b.top,b.bottom-c.height));
     } else {
-      if (mode.includes('e')) w=Math.min(Math.max(MIN_BOX,c.width+dx),b.right-c.x);
-      if (mode.includes('s')) h=Math.min(Math.max(MIN_BOX,c.height+dy),b.bottom-c.y);
+      if (mode.includes('e')) w=Math.min(Math.max(MIN_BOX,c.width+dx),Math.max(MIN_BOX,b.right-c.x));
+      if (mode.includes('s')) h=Math.min(Math.max(MIN_BOX,c.height+dy),Math.max(MIN_BOX,b.bottom-c.y));
       if (mode.includes('w')) { const nx=Math.min(Math.max(c.x+dx,b.left),c.x+c.width-MIN_BOX); w=c.width+(c.x-nx); x=nx; }
       if (mode.includes('n')) { const ny=Math.min(Math.max(c.y+dy,b.top),c.y+c.height-MIN_BOX); h=c.height+(c.y-ny); y=ny; }
     }
     S.crop={x,y,width:w,height:h}; drawCropFrame(); updateReadout();
   }
+
   function endCropDrag(event) {
     if (!cropDrag || event.pointerId!==cropDrag.pointerId) return;
-    event.preventDefault(); event.stopPropagation(); box.releasePointerCapture?.(event.pointerId); cropDrag=null; commitCrop('已调整白色裁切框，请按「确认裁切」。');
+    event.preventDefault(); event.stopPropagation(); box.releasePointerCapture?.(event.pointerId); cropDrag=null; commitCrop('已调整白色裁切框；原图大小保持不变。');
   }
   box.addEventListener('pointerdown',startCropDrag,true);
   window.addEventListener('pointermove',moveCropDrag,{capture:true,passive:false});
@@ -270,5 +296,5 @@
   window.addEventListener('mouseup',endImageDrag,true);
 
   syncPreviewAspect(); syncRulers();
-  stage.title='尺标固定；白色裁切框不能超过原图边界；拖动边缘或四角调整大小';
+  stage.title='尺标固定；拉白色裁切框不会改变原图大小；白框不能超过当前原图边界';
 })();
