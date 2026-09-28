@@ -1,12 +1,18 @@
-// Fixed rulers + freely movable/resizable crop frame.
+// Fixed rulers + freely movable/resizable crop frame + compact image-aware workspace.
 (() => {
   const stage = E.stage;
   const box = E.box;
   const RULER_SIZE = 28;
   const GAP = 8;
   const EDGE = 12;
-  const RANGE = 2000;
+  const BASE_X_RANGE = 1200;
+  const BASE_Y_RANGE = 1000;
+  const RANGE_STEP = 100;
   const MIN_BOX = 18;
+
+  let rangeKey = '';
+  let lockedXRange = BASE_X_RANGE;
+  let lockedYRange = BASE_Y_RANGE;
 
   drawImageView = function drawImageViewFixed() {
     Object.assign(E.img.style, {
@@ -59,32 +65,76 @@
   });
   box.style.pointerEvents = 'auto';
 
+  const roundUp = (value, step = RANGE_STEP) => Math.ceil(Math.max(0, value) / step) * step;
+
   function currentDims() {
     const width = Number(E.w.value), height = Number(E.h.value);
     if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
     return { width, height };
   }
 
-  function rulerGeometry() {
-    const rect = stageRect();
-    const originX = GAP + RULER_SIZE, originY = GAP + RULER_SIZE;
-    const availableWidth = Math.max(140, rect.width - originX - EDGE);
-    const availableHeight = Math.max(140, rect.height - originY - EDGE - 26);
-    const axisLength = Math.max(140, Math.min(availableWidth, availableHeight));
-    const scale = axisLength / RANGE;
-    return { originX, originY, axisLength, scale };
+  function sourceRangeKey() {
+    if (!S.file) return 'empty';
+    return `${S.file.name}|${S.file.size}|${S.nw}x${S.nh}`;
   }
 
-  function buildAxis(container, horizontal) {
+  function workspaceRanges() {
+    const key = sourceRangeKey();
+    const dims = currentDims() || { width: 0, height: 0 };
+    if (key !== rangeKey) {
+      rangeKey = key;
+      lockedXRange = roundUp(Math.max(BASE_X_RANGE, S.nw || 0, dims.width || 0));
+      lockedYRange = roundUp(Math.max(BASE_Y_RANGE, S.nh || 0, dims.height || 0));
+    } else {
+      // The rulers stay fixed while editing. They only grow when a genuinely larger size is requested.
+      lockedXRange = Math.max(lockedXRange, roundUp(dims.width || 0));
+      lockedYRange = Math.max(lockedYRange, roundUp(dims.height || 0));
+    }
+    return { xRange: Math.max(BASE_X_RANGE, lockedXRange), yRange: Math.max(BASE_Y_RANGE, lockedYRange) };
+  }
+
+  function rulerGeometry() {
+    const rect = stageRect();
+    const { xRange, yRange } = workspaceRanges();
+    const originX = GAP + RULER_SIZE, originY = GAP + RULER_SIZE;
+    const availableWidth = Math.max(220, rect.width - originX - EDGE);
+    const scale = availableWidth / xRange;
+    const axisWidth = xRange * scale;
+    const axisHeight = yRange * scale;
+    const desiredHeight = Math.max(300, Math.ceil(originY + axisHeight + EDGE));
+
+    // Remove the old 2000×2000-style empty black workspace: the stage hugs the actual ruler area.
+    if (Math.abs(rect.height - desiredHeight) > 1) {
+      stage.style.height = `${desiredHeight}px`;
+      stage.style.minHeight = `${desiredHeight}px`;
+      stage.style.maxHeight = 'none';
+    }
+
+    return { originX, originY, axisWidth, axisHeight, scale, xRange, yRange };
+  }
+
+  function majorStep(range) {
+    if (range <= 1600) return 200;
+    if (range <= 3000) return 500;
+    if (range <= 6000) return 1000;
+    return 2000;
+  }
+
+  function buildAxis(container, range, horizontal) {
     container.replaceChildren();
-    for (let value = 0; value <= RANGE; value += 50) {
-      const pct = value / RANGE * 100, major = value % 200 === 0;
-      const tick = document.createElement('span'); tick.className = `ruler-tick${major ? ' major' : ''}`;
+    const major = majorStep(range);
+    const minor = Math.max(25, major / 4);
+    for (let value = 0; value <= range + 0.001; value += minor) {
+      const exact = Math.min(value, range);
+      const pct = exact / range * 100;
+      const isMajor = Math.abs(exact / major - Math.round(exact / major)) < 0.001 || exact === 0 || exact === range;
+      const tick = document.createElement('span'); tick.className = `ruler-tick${isMajor ? ' major' : ''}`;
       horizontal ? tick.style.left = `${pct}%` : tick.style.top = `${pct}%`; container.appendChild(tick);
-      if (major) {
-        const label = document.createElement('span'); label.className = `ruler-label${value === 0 ? ' first' : ''}`; label.textContent = String(value);
+      if (isMajor) {
+        const label = document.createElement('span'); label.className = `ruler-label${exact === 0 ? ' first' : ''}`; label.textContent = String(Math.round(exact));
         horizontal ? label.style.left = `${pct}%` : label.style.top = `${pct}%`; container.appendChild(label);
       }
+      if (exact >= range) break;
     }
   }
 
@@ -102,19 +152,24 @@
   function syncRulers() {
     const g = rulerGeometry();
     Object.assign(rulerCorner.style,{display:'grid',left:`${GAP}px`,top:`${GAP}px`});
-    Object.assign(rulerX.style,{display:'block',left:`${g.originX}px`,top:`${GAP}px`,width:`${g.axisLength}px`});
-    Object.assign(rulerY.style,{display:'block',left:`${GAP}px`,top:`${g.originY}px`,height:`${g.axisLength}px`});
-    buildAxis(rulerX,true); buildAxis(rulerY,false);
+    Object.assign(rulerX.style,{display:'block',left:`${g.originX}px`,top:`${GAP}px`,width:`${g.axisWidth}px`});
+    Object.assign(rulerY.style,{display:'block',left:`${GAP}px`,top:`${g.originY}px`,height:`${g.axisHeight}px`});
+    buildAxis(rulerX,g.xRange,true); buildAxis(rulerY,g.yRange,false);
     if (S.crop) {
       const m = cropMetrics();
-      Object.assign(dimBadge.style,{display:'block',left:`${Math.min(stageRect().width-150,S.crop.x+8)}px`,top:`${Math.min(stageRect().height-28,S.crop.y+S.crop.height+7)}px`});
+      Object.assign(dimBadge.style,{display:'block',left:`${Math.min(stageRect().width-170,S.crop.x+8)}px`,top:`${Math.min(stageRect().height-28,S.crop.y+S.crop.height+7)}px`});
       dimBadge.textContent = `${m.width} × ${m.height}px · X${m.x} Y${m.y}`;
     } else dimBadge.style.display = 'none';
   }
 
   computeCropFrame = function computeCropFrameFromRuler() {
     const g = rulerGeometry(), dims = currentDims() || { width:1200, height:750 };
-    return { x:g.originX, y:g.originY, width:Math.min(g.axisLength,Math.max(MIN_BOX,dims.width*g.scale)), height:Math.min(g.axisLength,Math.max(MIN_BOX,dims.height*g.scale)) };
+    return {
+      x:g.originX,
+      y:g.originY,
+      width:Math.min(g.axisWidth,Math.max(MIN_BOX,dims.width*g.scale)),
+      height:Math.min(g.axisHeight,Math.max(MIN_BOX,dims.height*g.scale)),
+    };
   };
 
   const baseDrawCropFrame = drawCropFrame;
@@ -141,7 +196,7 @@
     if (!S.file || !S.crop || (event.pointerType==='mouse' && event.button!==0)) return;
     event.preventDefault(); event.stopPropagation();
     const handle=event.target.closest('[data-resize]'), mode=handle?.dataset.resize || 'move', g=rulerGeometry();
-    cropDrag={pointerId:event.pointerId,mode,startX:event.clientX,startY:event.clientY,crop:{...S.crop},bounds:{left:g.originX,top:g.originY,right:g.originX+g.axisLength,bottom:g.originY+g.axisLength}};
+    cropDrag={pointerId:event.pointerId,mode,startX:event.clientX,startY:event.clientY,crop:{...S.crop},bounds:{left:g.originX,top:g.originY,right:g.originX+g.axisWidth,bottom:g.originY+g.axisHeight}};
     box.setPointerCapture?.(event.pointerId);
   }
   function moveCropDrag(event) {
