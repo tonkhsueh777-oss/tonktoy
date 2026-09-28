@@ -1,239 +1,187 @@
-// Fixed ruler coordinate system + resizable crop frame + reliable source dragging.
+// Fixed rulers + freely movable/resizable crop frame.
 (() => {
-  // Keep source image positioned by explicit left/top coordinates.
+  const stage = E.stage;
+  const box = E.box;
+  const RULER_SIZE = 28;
+  const GAP = 8;
+  const EDGE = 12;
+  const RANGE = 2000;
+  const MIN_BOX = 18;
+
   drawImageView = function drawImageViewFixed() {
     Object.assign(E.img.style, {
-      display: 'block',
-      position: 'absolute',
-      inset: 'auto',
-      margin: '0',
-      left: `${S.view.x}px`,
-      top: `${S.view.y}px`,
-      right: 'auto',
-      bottom: 'auto',
-      width: `${S.view.width}px`,
-      height: `${S.view.height}px`,
-      maxWidth: 'none',
-      maxHeight: 'none',
-      transform: 'none',
+      display: 'block', position: 'absolute', inset: 'auto', margin: '0',
+      left: `${S.view.x}px`, top: `${S.view.y}px`, right: 'auto', bottom: 'auto',
+      width: `${S.view.width}px`, height: `${S.view.height}px`,
+      maxWidth: 'none', maxHeight: 'none', transform: 'none',
     });
     updateReadout();
   };
 
-  const stage = E.stage;
-  const RULER_SIZE = 28;
-  const GAP = 8;
-  const EDGE = 12;
-  const MIN_RANGE = 2000;
-
-  const rulerStyle = document.createElement('style');
-  rulerStyle.textContent = `
+  const style = document.createElement('style');
+  style.textContent = `
     .ruler-overlay{position:absolute;z-index:8;pointer-events:none;color:#a9bdd3;font-size:9px;font-variant-numeric:tabular-nums;user-select:none}
     .ruler-x{height:${RULER_SIZE}px;background:#0b1725;border:1px solid #29445f;border-bottom-color:#6f93b7;overflow:hidden}
     .ruler-y{width:${RULER_SIZE}px;background:#0b1725;border:1px solid #29445f;border-right-color:#6f93b7;overflow:hidden}
     .ruler-corner{width:${RULER_SIZE}px;height:${RULER_SIZE}px;display:grid;place-items:center;background:#102238;border:1px solid #355778;color:#e3f0fc;font-size:8px;font-weight:800}
     .ruler-tick{position:absolute;background:#6686a7;opacity:.95}
-    .ruler-x .ruler-tick{bottom:0;width:1px;height:6px}
-    .ruler-x .ruler-tick.major{height:12px;background:#d2e3f3}
-    .ruler-y .ruler-tick{right:0;height:1px;width:6px}
-    .ruler-y .ruler-tick.major{width:12px;background:#d2e3f3}
+    .ruler-x .ruler-tick{bottom:0;width:1px;height:6px}.ruler-x .ruler-tick.major{height:12px;background:#d2e3f3}
+    .ruler-y .ruler-tick{right:0;height:1px;width:6px}.ruler-y .ruler-tick.major{width:12px;background:#d2e3f3}
     .ruler-label{position:absolute;color:#d0dfed;line-height:1;white-space:nowrap;text-shadow:0 1px 1px #000}
-    .ruler-x .ruler-label{top:3px;transform:translateX(-50%)}
-    .ruler-x .ruler-label.first{transform:none}
-    .ruler-y .ruler-label{left:3px;transform:translateY(-50%)}
-    .ruler-y .ruler-label.first{transform:none;top:2px!important}
-    .ruler-dim-badge{position:absolute;z-index:9;pointer-events:none;padding:4px 7px;border-radius:5px;background:rgba(7,18,31,.94);border:1px solid #355778;color:#d7e8f8;font-size:10px;font-variant-numeric:tabular-nums;white-space:nowrap}
+    .ruler-x .ruler-label{top:3px;transform:translateX(-50%)}.ruler-x .ruler-label.first{transform:none}
+    .ruler-y .ruler-label{left:3px;transform:translateY(-50%)}.ruler-y .ruler-label.first{transform:none;top:2px!important}
+    .ruler-dim-badge{position:absolute;z-index:10;pointer-events:none;padding:4px 7px;border-radius:5px;background:rgba(7,18,31,.94);border:1px solid #355778;color:#d7e8f8;font-size:10px;font-variant-numeric:tabular-nums;white-space:nowrap}
+    #cropBox{pointer-events:auto!important;cursor:move!important;z-index:9!important}
+    #cropBox .crop-handle{display:block!important;position:absolute;background:#fff;border:1px solid #0a68d8;z-index:12}
+    #cropBox .crop-handle.nw,#cropBox .crop-handle.ne,#cropBox .crop-handle.sw,#cropBox .crop-handle.se{width:12px;height:12px;border-radius:2px;background:#fff}
+    #cropBox .crop-handle.nw{left:-6px;top:-6px;cursor:nwse-resize}#cropBox .crop-handle.ne{right:-6px;top:-6px;cursor:nesw-resize}
+    #cropBox .crop-handle.sw{left:-6px;bottom:-6px;cursor:nesw-resize}#cropBox .crop-handle.se{right:-6px;bottom:-6px;cursor:nwse-resize}
+    #cropBox .edge-handle{position:absolute;z-index:11;background:transparent}
+    #cropBox .edge-handle.n{left:10px;right:10px;top:-7px;height:14px;cursor:ns-resize}
+    #cropBox .edge-handle.s{left:10px;right:10px;bottom:-7px;height:14px;cursor:ns-resize}
+    #cropBox .edge-handle.w{top:10px;bottom:10px;left:-7px;width:14px;cursor:ew-resize}
+    #cropBox .edge-handle.e{top:10px;bottom:10px;right:-7px;width:14px;cursor:ew-resize}
   `;
-  document.head.appendChild(rulerStyle);
+  document.head.appendChild(style);
 
-  const rulerX = document.createElement('div');
-  rulerX.className = 'ruler-overlay ruler-x';
-  const rulerY = document.createElement('div');
-  rulerY.className = 'ruler-overlay ruler-y';
-  const rulerCorner = document.createElement('div');
-  rulerCorner.className = 'ruler-overlay ruler-corner';
-  rulerCorner.textContent = '0,0';
-  const dimBadge = document.createElement('div');
-  dimBadge.className = 'ruler-dim-badge';
+  const rulerX = document.createElement('div'); rulerX.className = 'ruler-overlay ruler-x';
+  const rulerY = document.createElement('div'); rulerY.className = 'ruler-overlay ruler-y';
+  const rulerCorner = document.createElement('div'); rulerCorner.className = 'ruler-overlay ruler-corner'; rulerCorner.textContent = '0,0';
+  const dimBadge = document.createElement('div'); dimBadge.className = 'ruler-dim-badge';
   stage.append(rulerX, rulerY, rulerCorner, dimBadge);
 
+  ['n','e','s','w'].forEach((dir) => {
+    if (box.querySelector(`.edge-handle.${dir}`)) return;
+    const h = document.createElement('span'); h.className = `edge-handle ${dir}`; h.dataset.resize = dir; box.appendChild(h);
+  });
+  [['nw','nw'],['ne','ne'],['sw','sw'],['se','se']].forEach(([cls, dir]) => {
+    const h = box.querySelector(`.crop-handle.${cls}`); if (h) { h.style.display = 'block'; h.dataset.resize = dir; }
+  });
+  box.style.pointerEvents = 'auto';
+
   function currentDims() {
-    const width = Number(E.w.value);
-    const height = Number(E.h.value);
+    const width = Number(E.w.value), height = Number(E.h.value);
     if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
     return { width, height };
   }
 
   function rulerGeometry() {
     const rect = stageRect();
-    const dims = currentDims() || { width: 1200, height: 750 };
-    const originX = GAP + RULER_SIZE;
-    const originY = GAP + RULER_SIZE;
-    const availableWidth = Math.max(120, rect.width - originX - EDGE);
-    const availableHeight = Math.max(120, rect.height - originY - EDGE - 26);
-    const axisLength = Math.max(120, Math.min(availableWidth, availableHeight));
-    const largestDimension = Math.max(dims.width, dims.height, MIN_RANGE);
-    const range = Math.max(MIN_RANGE, Math.ceil(largestDimension / 500) * 500);
-    const scale = axisLength / range;
-    return { originX, originY, axisLength, range, scale, dims };
+    const originX = GAP + RULER_SIZE, originY = GAP + RULER_SIZE;
+    const availableWidth = Math.max(140, rect.width - originX - EDGE);
+    const availableHeight = Math.max(140, rect.height - originY - EDGE - 26);
+    const axisLength = Math.max(140, Math.min(availableWidth, availableHeight));
+    const scale = axisLength / RANGE;
+    return { originX, originY, axisLength, scale };
   }
 
-  function niceMajorStep(range) {
-    const target = range / 10;
-    const options = [100, 200, 250, 500, 1000, 2000, 2500, 5000];
-    return options.find((value) => value >= target) || 5000;
-  }
-
-  function buildAxis(container, range, horizontal) {
+  function buildAxis(container, horizontal) {
     container.replaceChildren();
-    const major = niceMajorStep(range);
-    const minor = Math.max(10, major / 4);
-
-    for (let value = 0; value <= range + 0.001; value += minor) {
-      const exact = Math.min(value, range);
-      const pct = (exact / range) * 100;
-      const isMajor = Math.abs(exact / major - Math.round(exact / major)) < 0.001 || exact === 0 || exact === range;
-
-      const tick = document.createElement('span');
-      tick.className = `ruler-tick${isMajor ? ' major' : ''}`;
-      if (horizontal) tick.style.left = `${pct}%`;
-      else tick.style.top = `${pct}%`;
-      container.appendChild(tick);
-
-      if (isMajor) {
-        const label = document.createElement('span');
-        label.className = `ruler-label${exact === 0 ? ' first' : ''}`;
-        label.textContent = String(Math.round(exact));
-        if (horizontal) label.style.left = `${pct}%`;
-        else label.style.top = `${pct}%`;
-        container.appendChild(label);
+    for (let value = 0; value <= RANGE; value += 50) {
+      const pct = value / RANGE * 100, major = value % 200 === 0;
+      const tick = document.createElement('span'); tick.className = `ruler-tick${major ? ' major' : ''}`;
+      horizontal ? tick.style.left = `${pct}%` : tick.style.top = `${pct}%`; container.appendChild(tick);
+      if (major) {
+        const label = document.createElement('span'); label.className = `ruler-label${value === 0 ? ' first' : ''}`; label.textContent = String(value);
+        horizontal ? label.style.left = `${pct}%` : label.style.top = `${pct}%`; container.appendChild(label);
       }
-
-      if (exact >= range) break;
     }
+  }
+
+  function cropMetrics() {
+    if (!S.crop) return { x:0, y:0, width:0, height:0 };
+    const g = rulerGeometry();
+    return {
+      x: Math.max(0, Math.round((S.crop.x - g.originX) / g.scale)),
+      y: Math.max(0, Math.round((S.crop.y - g.originY) / g.scale)),
+      width: Math.max(1, Math.round(S.crop.width / g.scale)),
+      height: Math.max(1, Math.round(S.crop.height / g.scale)),
+    };
   }
 
   function syncRulers() {
     const g = rulerGeometry();
-    Object.assign(rulerCorner.style, {
-      display: 'grid',
-      left: `${GAP}px`,
-      top: `${GAP}px`,
-    });
-    Object.assign(rulerX.style, {
-      display: 'block',
-      left: `${g.originX}px`,
-      top: `${GAP}px`,
-      width: `${g.axisLength}px`,
-    });
-    Object.assign(rulerY.style, {
-      display: 'block',
-      left: `${GAP}px`,
-      top: `${g.originY}px`,
-      height: `${g.axisLength}px`,
-    });
-
-    buildAxis(rulerX, g.range, true);
-    buildAxis(rulerY, g.range, false);
-
+    Object.assign(rulerCorner.style,{display:'grid',left:`${GAP}px`,top:`${GAP}px`});
+    Object.assign(rulerX.style,{display:'block',left:`${g.originX}px`,top:`${GAP}px`,width:`${g.axisLength}px`});
+    Object.assign(rulerY.style,{display:'block',left:`${GAP}px`,top:`${g.originY}px`,height:`${g.axisLength}px`});
+    buildAxis(rulerX,true); buildAxis(rulerY,false);
     if (S.crop) {
-      Object.assign(dimBadge.style, {
-        display: 'block',
-        left: `${S.crop.x + S.crop.width + 6}px`,
-        top: `${S.crop.y + S.crop.height + 6}px`,
-      });
-      dimBadge.textContent = `${Math.round(g.dims.width)} × ${Math.round(g.dims.height)}px`;
-    } else {
-      dimBadge.style.display = 'none';
-    }
+      const m = cropMetrics();
+      Object.assign(dimBadge.style,{display:'block',left:`${Math.min(stageRect().width-150,S.crop.x+8)}px`,top:`${Math.min(stageRect().height-28,S.crop.y+S.crop.height+7)}px`});
+      dimBadge.textContent = `${m.width} × ${m.height}px · X${m.x} Y${m.y}`;
+    } else dimBadge.style.display = 'none';
   }
 
-  // The ruler never follows the crop box. Only the crop box changes size.
-  // Its top-left is permanently anchored to the fixed 0,0 ruler origin.
-  computeCropFrame = function computeCropFrameFromFixedRuler() {
-    const g = rulerGeometry();
-    return {
-      x: g.originX,
-      y: g.originY,
-      width: Math.max(1, g.dims.width * g.scale),
-      height: Math.max(1, g.dims.height * g.scale),
-    };
+  computeCropFrame = function computeCropFrameFromRuler() {
+    const g = rulerGeometry(), dims = currentDims() || { width:1200, height:750 };
+    return { x:g.originX, y:g.originY, width:Math.min(g.axisLength,Math.max(MIN_BOX,dims.width*g.scale)), height:Math.min(g.axisLength,Math.max(MIN_BOX,dims.height*g.scale)) };
   };
 
-  const originalDrawCropFrame = drawCropFrame;
-  drawCropFrame = function drawCropFrameWithFixedRulers() {
-    originalDrawCropFrame();
-    syncRulers();
-  };
+  const baseDrawCropFrame = drawCropFrame;
+  drawCropFrame = function drawCropFrameWithFixedRulers() { baseDrawCropFrame(); syncRulers(); };
 
-  // Right-side preview follows output aspect ratio.
   const previewFrame = E.preview?.closest('.preview-frame');
-  function syncPreviewAspect() {
-    if (!previewFrame) return;
-    const dims = currentDims();
-    if (!dims) return;
-    previewFrame.style.aspectRatio = `${dims.width} / ${dims.height}`;
-  }
+  function syncPreviewAspect() { const dims=currentDims(); if (previewFrame && dims) previewFrame.style.aspectRatio=`${dims.width} / ${dims.height}`; }
+  const baseSummary = summary;
+  summary = function summaryWithCropEditor() { baseSummary(); syncPreviewAspect(); syncRulers(); };
 
-  const originalSummary = summary;
-  summary = function summaryWithFixedRulerEditor() {
-    originalSummary();
-    syncPreviewAspect();
-    syncRulers();
+  updateReadout = function updateReadoutFromRuler() {
+    if (!S.file || !S.crop) { E.readout.textContent='—'; return; }
+    const m=cropMetrics(); E.readout.textContent=`${m.width} × ${m.height}px`;
   };
 
-  syncPreviewAspect();
-  syncRulers();
-
-  // Reliable desktop dragging under the fixed crop frame.
-  let drag = null;
-  const clampAxis = (value, min, max) => Math.min(Math.max(value, min), max);
-
-  function applyDelta(dx, dy) {
-    if (!S.file || !S.crop || !S.view.width || !S.view.height) return;
-    const minX = S.crop.x + S.crop.width - S.view.width;
-    const maxX = S.crop.x;
-    const minY = S.crop.y + S.crop.height - S.view.height;
-    const maxY = S.crop.y;
-    S.view.x = clampAxis(S.view.x + dx, minX, maxX);
-    S.view.y = clampAxis(S.view.y + dy, minY, maxY);
-    drawImageView();
+  function syncFieldsFromCrop() {
+    const m=cropMetrics(); E.w.value=String(m.width); E.h.value=String(m.height); S.outRatio=m.width/m.height;
+    summary(); syncPreviewAspect(); updateReadout();
   }
+  function commitCrop(message) { drawCropFrame(); syncFieldsFromCrop(); markDirty(message || '已调整裁切范围，请按「确认裁切」。'); }
 
-  function begin(event) {
-    if (!S.file || !S.crop || event.button !== 0) return;
-    if (event.target.closest('button, input, #zoomControls')) return;
-    event.preventDefault();
-    S.dragging = null;
-    drag = { x: event.clientX, y: event.clientY, moved: false };
-    stage.style.cursor = 'grabbing';
-    document.body.style.userSelect = 'none';
+  let cropDrag=null;
+  function startCropDrag(event) {
+    if (!S.file || !S.crop || (event.pointerType==='mouse' && event.button!==0)) return;
+    event.preventDefault(); event.stopPropagation();
+    const handle=event.target.closest('[data-resize]'), mode=handle?.dataset.resize || 'move', g=rulerGeometry();
+    cropDrag={pointerId:event.pointerId,mode,startX:event.clientX,startY:event.clientY,crop:{...S.crop},bounds:{left:g.originX,top:g.originY,right:g.originX+g.axisLength,bottom:g.originY+g.axisLength}};
+    box.setPointerCapture?.(event.pointerId);
   }
-
-  function move(event) {
-    if (!drag) return;
-    event.preventDefault();
-    const dx = event.clientX - drag.x;
-    const dy = event.clientY - drag.y;
-    drag.x = event.clientX;
-    drag.y = event.clientY;
-    if (!dx && !dy) return;
-    applyDelta(dx, dy);
-    drag.moved = true;
+  function moveCropDrag(event) {
+    if (!cropDrag || event.pointerId!==cropDrag.pointerId) return;
+    event.preventDefault(); event.stopPropagation();
+    const dx=event.clientX-cropDrag.startX, dy=event.clientY-cropDrag.startY, c=cropDrag.crop, b=cropDrag.bounds, mode=cropDrag.mode;
+    let x=c.x,y=c.y,w=c.width,h=c.height;
+    if (mode==='move') {
+      x=Math.min(Math.max(c.x+dx,b.left),b.right-c.width); y=Math.min(Math.max(c.y+dy,b.top),b.bottom-c.height);
+    } else {
+      if (mode.includes('e')) w=Math.min(Math.max(MIN_BOX,c.width+dx),b.right-c.x);
+      if (mode.includes('s')) h=Math.min(Math.max(MIN_BOX,c.height+dy),b.bottom-c.y);
+      if (mode.includes('w')) { const nx=Math.min(Math.max(c.x+dx,b.left),c.x+c.width-MIN_BOX); w=c.width+(c.x-nx); x=nx; }
+      if (mode.includes('n')) { const ny=Math.min(Math.max(c.y+dy,b.top),c.y+c.height-MIN_BOX); h=c.height+(c.y-ny); y=ny; }
+    }
+    S.crop={x,y,width:w,height:h}; drawCropFrame(); updateReadout();
   }
-
-  function end() {
-    if (!drag) return;
-    const moved = drag.moved;
-    drag = null;
-    stage.style.cursor = 'grab';
-    document.body.style.userSelect = '';
-    if (moved) markDirty('已移动原图，请按「确认裁切」。');
+  function endCropDrag(event) {
+    if (!cropDrag || event.pointerId!==cropDrag.pointerId) return;
+    event.preventDefault(); event.stopPropagation(); box.releasePointerCapture?.(event.pointerId); cropDrag=null; commitCrop('已调整白色裁切框，请按「确认裁切」。');
   }
+  box.addEventListener('pointerdown',startCropDrag,true);
+  window.addEventListener('pointermove',moveCropDrag,{capture:true,passive:false});
+  window.addEventListener('pointerup',endCropDrag,{capture:true,passive:false});
+  window.addEventListener('pointercancel',endCropDrag,{capture:true,passive:false});
 
-  stage.style.cursor = 'grab';
-  stage.title = '尺标固定；裁切框从左上角 0,0 原点改变宽高；拖动原图调整构图';
-  stage.addEventListener('mousedown', begin, true);
-  window.addEventListener('mousemove', move, true);
-  window.addEventListener('mouseup', end, true);
+  let imageDrag=null;
+  function startImageDrag(event) {
+    if (!S.file || !S.crop || event.button!==0 || event.target.closest('#cropBox, button, input, #zoomControls')) return;
+    event.preventDefault(); imageDrag={x:event.clientX,y:event.clientY,moved:false}; stage.style.cursor='grabbing'; document.body.style.userSelect='none';
+  }
+  function moveImageDrag(event) {
+    if (!imageDrag) return; const dx=event.clientX-imageDrag.x,dy=event.clientY-imageDrag.y; imageDrag.x=event.clientX; imageDrag.y=event.clientY;
+    if (!dx && !dy) return; S.view.x+=dx; S.view.y+=dy; clampViewIntoFrame(); drawImageView(); imageDrag.moved=true;
+  }
+  function endImageDrag() {
+    if (!imageDrag) return; const moved=imageDrag.moved; imageDrag=null; stage.style.cursor='grab'; document.body.style.userSelect=''; if (moved) markDirty('已移动原图，请按「确认裁切」。');
+  }
+  stage.addEventListener('mousedown',startImageDrag,true); window.addEventListener('mousemove',moveImageDrag,true); window.addEventListener('mouseup',endImageDrag,true);
+
+  syncPreviewAspect(); syncRulers();
+  stage.title='尺标固定；拖动白色框移动裁切范围；拖动白框边缘或四角调整大小';
 })();
