@@ -1,4 +1,4 @@
-// Fixed rulers + freely movable/resizable crop frame + compact image-aware workspace.
+// Fixed rulers + movable/resizable crop frame bounded by the source image.
 (() => {
   const stage = E.stage;
   const box = E.box;
@@ -13,6 +13,7 @@
   let rangeKey = '';
   let lockedXRange = BASE_X_RANGE;
   let lockedYRange = BASE_Y_RANGE;
+  let lockedStageWidth = 0;
 
   drawImageView = function drawImageViewFixed() {
     Object.assign(E.img.style, {
@@ -26,6 +27,8 @@
 
   const style = document.createElement('style');
   style.textContent = `
+    .editor-card{overflow-x:auto}
+    #editorStage{flex:0 0 auto}
     .ruler-overlay{position:absolute;z-index:8;pointer-events:none;color:#a9bdd3;font-size:9px;font-variant-numeric:tabular-nums;user-select:none}
     .ruler-x{height:${RULER_SIZE}px;background:#0b1725;border:1px solid #29445f;border-bottom-color:#6f93b7;overflow:hidden}
     .ruler-y{width:${RULER_SIZE}px;background:#0b1725;border:1px solid #29445f;border-right-color:#6f93b7;overflow:hidden}
@@ -78,39 +81,50 @@
     return `${S.file.name}|${S.file.size}|${S.nw}x${S.nh}`;
   }
 
+  // Ruler range is based on source image dimensions only. Output fields never expand the ruler.
   function workspaceRanges() {
     const key = sourceRangeKey();
-    const dims = currentDims() || { width: 0, height: 0 };
     if (key !== rangeKey) {
       rangeKey = key;
-      lockedXRange = roundUp(Math.max(BASE_X_RANGE, S.nw || 0, dims.width || 0));
-      lockedYRange = roundUp(Math.max(BASE_Y_RANGE, S.nh || 0, dims.height || 0));
-    } else {
-      // The rulers stay fixed while editing. They only grow when a genuinely larger size is requested.
-      lockedXRange = Math.max(lockedXRange, roundUp(dims.width || 0));
-      lockedYRange = Math.max(lockedYRange, roundUp(dims.height || 0));
+      lockedXRange = roundUp(Math.max(BASE_X_RANGE, S.nw || 0));
+      lockedYRange = roundUp(Math.max(BASE_Y_RANGE, S.nh || 0));
+      const measured = Math.round(stage.getBoundingClientRect().width);
+      lockedStageWidth = Math.max(520, measured || 520);
+      stage.style.width = `${lockedStageWidth}px`;
+      stage.style.minWidth = `${lockedStageWidth}px`;
+      stage.style.maxWidth = 'none';
     }
-    return { xRange: Math.max(BASE_X_RANGE, lockedXRange), yRange: Math.max(BASE_Y_RANGE, lockedYRange) };
+    return { xRange: lockedXRange, yRange: lockedYRange };
   }
 
   function rulerGeometry() {
-    const rect = stageRect();
     const { xRange, yRange } = workspaceRanges();
+    const rect = stageRect();
     const originX = GAP + RULER_SIZE, originY = GAP + RULER_SIZE;
-    const availableWidth = Math.max(220, rect.width - originX - EDGE);
+    const stableWidth = lockedStageWidth || rect.width;
+    const availableWidth = Math.max(220, stableWidth - originX - EDGE);
     const scale = availableWidth / xRange;
     const axisWidth = xRange * scale;
     const axisHeight = yRange * scale;
     const desiredHeight = Math.max(300, Math.ceil(originY + axisHeight + EDGE));
-
-    // Remove the old 2000×2000-style empty black workspace: the stage hugs the actual ruler area.
     if (Math.abs(rect.height - desiredHeight) > 1) {
       stage.style.height = `${desiredHeight}px`;
       stage.style.minHeight = `${desiredHeight}px`;
       stage.style.maxHeight = 'none';
     }
-
     return { originX, originY, axisWidth, axisHeight, scale, xRange, yRange };
+  }
+
+  // The white crop frame is bounded by the real source image, not by the extra ruler margin.
+  function sourceBounds(g = rulerGeometry()) {
+    const sourceWidth = Math.max(1, Math.min(S.nw || g.xRange, g.xRange));
+    const sourceHeight = Math.max(1, Math.min(S.nh || g.yRange, g.yRange));
+    return {
+      left: g.originX,
+      top: g.originY,
+      right: g.originX + sourceWidth * g.scale,
+      bottom: g.originY + sourceHeight * g.scale,
+    };
   }
 
   function majorStep(range) {
@@ -142,10 +156,10 @@
     if (!S.crop) return { x:0, y:0, width:0, height:0 };
     const g = rulerGeometry();
     return {
-      x: Math.max(0, Math.round((S.crop.x - g.originX) / g.scale)),
-      y: Math.max(0, Math.round((S.crop.y - g.originY) / g.scale)),
-      width: Math.max(1, Math.round(S.crop.width / g.scale)),
-      height: Math.max(1, Math.round(S.crop.height / g.scale)),
+      x: Math.max(0, Math.min(S.nw || g.xRange, Math.round((S.crop.x - g.originX) / g.scale))),
+      y: Math.max(0, Math.min(S.nh || g.yRange, Math.round((S.crop.y - g.originY) / g.scale))),
+      width: Math.max(1, Math.min(S.nw || g.xRange, Math.round(S.crop.width / g.scale))),
+      height: Math.max(1, Math.min(S.nh || g.yRange, Math.round(S.crop.height / g.scale))),
     };
   }
 
@@ -164,11 +178,15 @@
 
   computeCropFrame = function computeCropFrameFromRuler() {
     const g = rulerGeometry(), dims = currentDims() || { width:1200, height:750 };
+    const maxWidth = Math.max(1, S.nw || dims.width);
+    const maxHeight = Math.max(1, S.nh || dims.height);
+    const logicalWidth = Math.min(dims.width, maxWidth);
+    const logicalHeight = Math.min(dims.height, maxHeight);
     return {
       x:g.originX,
       y:g.originY,
-      width:Math.min(g.axisWidth,Math.max(MIN_BOX,dims.width*g.scale)),
-      height:Math.min(g.axisHeight,Math.max(MIN_BOX,dims.height*g.scale)),
+      width:Math.max(MIN_BOX, logicalWidth*g.scale),
+      height:Math.max(MIN_BOX, logicalHeight*g.scale),
     };
   };
 
@@ -189,14 +207,20 @@
     const m=cropMetrics(); E.w.value=String(m.width); E.h.value=String(m.height); S.outRatio=m.width/m.height;
     summary(); syncPreviewAspect(); updateReadout();
   }
-  function commitCrop(message) { drawCropFrame(); syncFieldsFromCrop(); markDirty(message || '已调整裁切范围，请按「确认裁切」。'); }
+  function commitCrop(message) {
+    clampViewIntoFrame();
+    drawImageView();
+    drawCropFrame();
+    syncFieldsFromCrop();
+    markDirty(message || '已调整裁切范围，请按「确认裁切」。');
+  }
 
   let cropDrag=null;
   function startCropDrag(event) {
     if (!S.file || !S.crop || (event.pointerType==='mouse' && event.button!==0)) return;
     event.preventDefault(); event.stopPropagation();
     const handle=event.target.closest('[data-resize]'), mode=handle?.dataset.resize || 'move', g=rulerGeometry();
-    cropDrag={pointerId:event.pointerId,mode,startX:event.clientX,startY:event.clientY,crop:{...S.crop},bounds:{left:g.originX,top:g.originY,right:g.originX+g.axisWidth,bottom:g.originY+g.axisHeight}};
+    cropDrag={pointerId:event.pointerId,mode,startX:event.clientX,startY:event.clientY,crop:{...S.crop},bounds:sourceBounds(g)};
     box.setPointerCapture?.(event.pointerId);
   }
   function moveCropDrag(event) {
@@ -205,7 +229,8 @@
     const dx=event.clientX-cropDrag.startX, dy=event.clientY-cropDrag.startY, c=cropDrag.crop, b=cropDrag.bounds, mode=cropDrag.mode;
     let x=c.x,y=c.y,w=c.width,h=c.height;
     if (mode==='move') {
-      x=Math.min(Math.max(c.x+dx,b.left),b.right-c.width); y=Math.min(Math.max(c.y+dy,b.top),b.bottom-c.height);
+      x=Math.min(Math.max(c.x+dx,b.left),Math.max(b.left,b.right-c.width));
+      y=Math.min(Math.max(c.y+dy,b.top),Math.max(b.top,b.bottom-c.height));
     } else {
       if (mode.includes('e')) w=Math.min(Math.max(MIN_BOX,c.width+dx),b.right-c.x);
       if (mode.includes('s')) h=Math.min(Math.max(MIN_BOX,c.height+dy),b.bottom-c.y);
@@ -229,14 +254,21 @@
     event.preventDefault(); imageDrag={x:event.clientX,y:event.clientY,moved:false}; stage.style.cursor='grabbing'; document.body.style.userSelect='none';
   }
   function moveImageDrag(event) {
-    if (!imageDrag) return; const dx=event.clientX-imageDrag.x,dy=event.clientY-imageDrag.y; imageDrag.x=event.clientX; imageDrag.y=event.clientY;
-    if (!dx && !dy) return; S.view.x+=dx; S.view.y+=dy; clampViewIntoFrame(); drawImageView(); imageDrag.moved=true;
+    if (!imageDrag) return;
+    const dx=event.clientX-imageDrag.x,dy=event.clientY-imageDrag.y;
+    imageDrag.x=event.clientX; imageDrag.y=event.clientY;
+    if (!dx && !dy) return;
+    S.view.x+=dx; S.view.y+=dy; clampViewIntoFrame(); drawImageView(); imageDrag.moved=true;
   }
   function endImageDrag() {
-    if (!imageDrag) return; const moved=imageDrag.moved; imageDrag=null; stage.style.cursor='grab'; document.body.style.userSelect=''; if (moved) markDirty('已移动原图，请按「确认裁切」。');
+    if (!imageDrag) return;
+    const moved=imageDrag.moved; imageDrag=null; stage.style.cursor='grab'; document.body.style.userSelect='';
+    if (moved) markDirty('已移动原图，请按「确认裁切」。');
   }
-  stage.addEventListener('mousedown',startImageDrag,true); window.addEventListener('mousemove',moveImageDrag,true); window.addEventListener('mouseup',endImageDrag,true);
+  stage.addEventListener('mousedown',startImageDrag,true);
+  window.addEventListener('mousemove',moveImageDrag,true);
+  window.addEventListener('mouseup',endImageDrag,true);
 
   syncPreviewAspect(); syncRulers();
-  stage.title='尺标固定；拖动白色框移动裁切范围；拖动白框边缘或四角调整大小';
+  stage.title='尺标固定；白色裁切框不能超过原图边界；拖动边缘或四角调整大小';
 })();
