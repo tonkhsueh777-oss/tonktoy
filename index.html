@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#07111f" />
   <meta name="description" content="本机运行的网页图片裁切、尺寸调整、压缩、格式转换与命名工具。" />
   <title>图片处理工具</title>
-  <link rel="stylesheet" href="./styles.css?v=20260929-1405" />
+  <link rel="stylesheet" href="./styles.css?v=20260929-1355" />
 </head>
 <body>
   <div class="app-shell">
@@ -145,6 +145,7 @@
             <li>直接把图片拖进中间编辑区，或点击编辑区选择图片。</li>
             <li>尺标固定在编辑工作区左上角，拖动或缩放原图都不会移动尺标。</li>
             <li>参考线可直接输入 X / Y 像素坐标精确定位，并可锁定防止误拖。</li>
+            <li>原图缩放可在 25%～400% 调整；缩放锁只固定比例，原图仍可拖动。</li>
             <li>参考线以固定尺标为基准；开启吸附后白框会自动靠齐参考线。</li>
             <li>开启「锁定裁切框大小」后，白框只能移动，宽高不会改变。</li>
           </ol>
@@ -153,17 +154,18 @@
     </main>
   </div>
 
-  <script src="./app.js?v=20260929-1405"></script>
-  <script src="./central-upload.js?v=20260929-1405"></script>
-  <script src="./workspace-zoom-core.js?v=20260929-1405"></script>
-  <script src="./workspace-zoom.js?v=20260929-1405"></script>
-  <script src="./precision-crop.js?v=20260929-1405"></script>
-  <script src="./drag-fix.js?v=20260929-1405"></script>
-  <script src="./interaction-fix.js?v=20260929-1405"></script>
-  <script src="./guides.js?v=20260929-1405"></script>
-  <script src="./origin-align.js?v=20260929-1405"></script>
-  <script src="./guide-coordinate.js?v=20260929-1405"></script>
-  <script src="./workspace-precision.js?v=20260929-1405"></script>
-  <script src="./fixed-rulers.js?v=20260929-1405"></script>
+  <script src="./app.js?v=20260929-1355"></script>
+  <script src="./central-upload.js?v=20260929-1355"></script>
+  <script src="./workspace-zoom-core.js?v=20260929-1355"></script>
+  <script src="./workspace-zoom.js?v=20260929-1355"></script>
+  <script src="./precision-crop.js?v=20260929-1355"></script>
+  <script src="./drag-fix.js?v=20260929-1355"></script>
+  <script src="./interaction-fix.js?v=20260929-1355"></script>
+  <script src="./guides.js?v=20260929-1355"></script>
+  <script src="./origin-align.js?v=20260929-1355"></script>
+  <script src="./guide-coordinate.js?v=20260929-1355"></script>
+  <script src="./workspace-precision.js?v=20260929-1355"></script>
+  <script src="./fixed-rulers.js?v=20260929-1355"></script>
+  <script src="./source-zoom-lock.js?v=20260929-1355"></script>
 </body>
 </html>
