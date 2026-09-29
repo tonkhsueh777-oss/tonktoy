@@ -67,11 +67,25 @@
     return { width: stage.offsetWidth, height: stage.offsetHeight };
   }
 
+  // The ruler/image origin is a logical anchor. View zoom scales content around
+  // this anchor so 0,0 stays visually fixed instead of drifting at 200%/400%.
+  function logicalOrigin() {
+    const rx = stage.querySelector('.ruler-x');
+    const ry = stage.querySelector('.ruler-y');
+    return {
+      x: rx?.offsetLeft ?? 36,
+      y: ry?.offsetTop ?? 36,
+    };
+  }
+
   function syncVisualSize() {
     const { width, height } = logicalSize();
-    stage.style.transform = `scale(${S.viewZoom})`;
-    sizer.style.width = `${Math.ceil(width * S.viewZoom)}px`;
-    sizer.style.height = `${Math.ceil(height * S.viewZoom)}px`;
+    const origin = logicalOrigin();
+    const tx = origin.x * (1 - S.viewZoom);
+    const ty = origin.y * (1 - S.viewZoom);
+    stage.style.transform = `translate(${tx}px, ${ty}px) scale(${S.viewZoom})`;
+    sizer.style.width = `${Math.ceil(origin.x + Math.max(0, width - origin.x) * S.viewZoom)}px`;
+    sizer.style.height = `${Math.ceil(origin.y + Math.max(0, height - origin.y) * S.viewZoom)}px`;
     valueBtn.textContent = `视图 ${Math.round(S.viewZoom * 100)}%`;
     const idx = Core.LEVELS.indexOf(S.viewZoom);
     outBtn.disabled = idx <= 0;
@@ -79,6 +93,11 @@
   }
 
   function getZoom() { return S.viewZoom || 1; }
+
+  function preserveAnchoredScroll(oldScroll, viewportSize, oldZoom, newZoom, origin) {
+    const logicalCenter = origin + (oldScroll + viewportSize / 2 - origin) / oldZoom;
+    return origin + (logicalCenter - origin) * newZoom - viewportSize / 2;
+  }
 
   function setZoom(next) {
     const normalized = Core.LEVELS.includes(Number(next)) ? Number(next) : Core.clampZoom(next);
@@ -88,11 +107,13 @@
     const oldTop = viewport.scrollTop;
     const vw = viewport.clientWidth;
     const vh = viewport.clientHeight;
+    const origin = logicalOrigin();
     S.viewZoom = normalized;
     syncVisualSize();
-    viewport.scrollLeft = Math.max(0, Core.preserveViewportCenter(oldLeft, vw, old, normalized));
-    viewport.scrollTop = Math.max(0, Core.preserveViewportCenter(oldTop, vh, old, normalized));
+    viewport.scrollLeft = Math.max(0, preserveAnchoredScroll(oldLeft, vw, old, normalized, origin.x));
+    viewport.scrollTop = Math.max(0, preserveAnchoredScroll(oldTop, vh, old, normalized, origin.y));
     menu.classList.remove('open');
+    window.dispatchEvent(new CustomEvent('workspaceviewzoomchange', { detail: { zoom: normalized } }));
   }
 
   function clientToWorkspace(clientX, clientY) {
@@ -139,5 +160,7 @@
     workspaceToClient,
     screenDeltaToWorkspace,
     getViewport: () => viewport,
+    getLogicalOrigin: logicalOrigin,
+    refresh: syncVisualSize,
   };
 })();
