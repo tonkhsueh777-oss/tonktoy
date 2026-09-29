@@ -17,6 +17,6 @@
   `;
   document.head.appendChild(style);
 
-  img.src = './assets/xuedao.webp?v=20260929-1500';
+  img.src = './assets/xuedao.webp?v=20260929-1510';
   img.alt = '薛导帮你裁剪图片';
 })();
