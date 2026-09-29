@@ -26,5 +26,22 @@
     return centerLogical * newZ - Number(viewportSize) / 2;
   }
 
-  return { LEVELS, clampZoom, screenDeltaToLogical, logicalSnapDistance, preserveViewportCenter };
+  function preserveViewportStart(oldScroll, oldZoom, newZoom, origin = 0) {
+    const oldZ = clampZoom(oldZoom);
+    const newZ = clampZoom(newZoom);
+    const anchor = Number.isFinite(Number(origin)) ? Number(origin) : 0;
+    const old = Number.isFinite(Number(oldScroll)) ? Number(oldScroll) : 0;
+    const logicalStart = anchor + (old - anchor) / oldZ;
+    const next = anchor + (logicalStart - anchor) * newZ;
+    return Math.max(0, Math.round(next * 1000) / 1000);
+  }
+
+  return {
+    LEVELS,
+    clampZoom,
+    screenDeltaToLogical,
+    logicalSnapDistance,
+    preserveViewportCenter,
+    preserveViewportStart,
+  };
 });
