@@ -5,7 +5,7 @@
   const RULER_SIZE = 28;
   const GAP = 8;
   const EDGE = 12;
-  const BASE_X_RANGE = 1200;
+  const BASE_X_RANGE = 2000;
   const BASE_Y_RANGE = 1000;
   const RANGE_STEP = 100;
   const MIN_BOX = 18;
