@@ -3,7 +3,6 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const precisionSource = fs.readFileSync(path.join(__dirname, '..', 'workspace-precision.js'), 'utf8');
 
 test('loads whole-workspace zoom integration and removes local magnifier', () => {
   assert.equal(html.includes('magnifier.js'), false);
@@ -22,11 +21,15 @@ test('loads unified precision interaction after legacy geometry scripts', () => 
   assert.ok(html.indexOf('workspace-precision.js') > html.indexOf('origin-align.js'));
 });
 
-test('precision workspace provides numeric X/Y guide positioning and guide lock', () => {
-  assert.equal(precisionSource.includes('guideXInput'), true);
-  assert.equal(precisionSource.includes('guideYInput'), true);
-  assert.equal(precisionSource.includes('guideLocateBtn'), true);
-  assert.equal(precisionSource.includes('guideLockToggle'), true);
-  assert.equal(precisionSource.includes('guidesLocked'), true);
-  assert.equal(precisionSource.includes("classList.add('numeric-guide')"), true);
+test('loads numeric X/Y guide positioning before final precision controller', () => {
+  assert.equal(html.includes('guide-coordinate.js'), true);
+  assert.ok(html.indexOf('guide-coordinate.js') > html.indexOf('origin-align.js'));
+  assert.ok(html.indexOf('guide-coordinate.js') < html.indexOf('workspace-precision.js'));
+  const guideSource = fs.readFileSync(path.join(__dirname, '..', 'guide-coordinate.js'), 'utf8');
+  assert.equal(guideSource.includes('guideXInput'), true);
+  assert.equal(guideSource.includes('guideYInput'), true);
+  assert.equal(guideSource.includes('guideLocateBtn'), true);
+  assert.equal(guideSource.includes('guideLockToggle'), true);
+  assert.equal(guideSource.includes('guidesLocked'), true);
+  assert.equal(guideSource.includes("classList.add('numeric-guide')"), true);
 });
