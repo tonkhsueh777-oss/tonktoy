@@ -33,6 +33,21 @@
     };
   }
 
+  function clampImageToRulerBounds() {
+    const geo = rulerGeometry();
+    if (!geo || !S.view) return false;
+    let changed = false;
+    if (S.view.x < geo.originX) {
+      S.view.x = geo.originX;
+      changed = true;
+    }
+    if (S.view.y < geo.originY) {
+      S.view.y = geo.originY;
+      changed = true;
+    }
+    return changed;
+  }
+
   function sourceMetrics(crop = S.crop) {
     if (!crop || !S.view.width || !S.view.height || !S.nw || !S.nh) return { x:0,y:0,width:0,height:0 };
     const x1 = ((crop.x - S.view.x) / S.view.width) * S.nw;
@@ -221,6 +236,7 @@
     if (action.type === 'image') {
       S.view.x = action.view.x + (point.x-action.start.x);
       S.view.y = action.view.y + (point.y-action.start.y);
+      clampImageToRulerBounds();
       drawImageView();
     } else if (action.type === 'crop') {
       S.crop = cropFromPointer(point);
@@ -274,9 +290,10 @@
   resetImageView=function zoomSafeResetImageView(){
     const first=!S.view.width||!S.view.height||!S.fitScale;
     if (fitRequested||first) { fitRequested=false; if (alignToRulerOrigin()) return; }
+    clampImageToRulerBounds();
     drawImageView(); updateZoomUI();
   };
 
   new ResizeObserver(()=>requestAnimationFrame(renderAllGuides)).observe(stage);
-  window.__workspacePrecision = { rulerGeometry, sourceMetrics, renderAllGuides, alignToRulerOrigin };
+  window.__workspacePrecision = { rulerGeometry, sourceMetrics, renderAllGuides, alignToRulerOrigin, clampImageToRulerBounds };
 })();
