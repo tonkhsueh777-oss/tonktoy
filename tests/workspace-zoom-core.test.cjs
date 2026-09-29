@@ -26,3 +26,13 @@ test('clamps zoom to the supported range', () => {
 test('preserves the same logical viewport center after zoom', () => {
   assert.equal(Core.preserveViewportCenter(200, 600, 1, 2), 700);
 });
+
+test('keeps the viewport at the 0,0 origin when zooming from the top-left', () => {
+  assert.equal(Core.preserveViewportStart(0, 1, 3, 36), 0);
+  assert.equal(Core.preserveViewportStart(0, 1, 4, 36), 0);
+});
+
+test('preserves a manually scrolled logical start position across zoom', () => {
+  assert.equal(Core.preserveViewportStart(100, 1, 3, 36), 228);
+  assert.equal(Core.preserveViewportStart(228, 3, 1, 36), 100);
+});
