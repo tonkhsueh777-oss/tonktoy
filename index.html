@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#07111f" />
   <meta name="description" content="本机运行的网页图片裁切、尺寸调整、压缩、格式转换与命名工具。" />
   <title>图片处理工具</title>
-  <link rel="stylesheet" href="./styles.css?v=20260929-1325" />
+  <link rel="stylesheet" href="./styles.css?v=20260929-1335" />
 </head>
 <body>
   <div class="app-shell">
@@ -28,18 +28,12 @@
       <div class="privacy-pill" title="图片不会上传服务器"><span class="privacy-dot"></span> 本机处理</div>
     </header>
 
+    <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" hidden />
+    <button id="dropZone" type="button" hidden aria-hidden="true" tabindex="-1"></button>
+    <button id="emptyUploadBtn" type="button" hidden aria-hidden="true" tabindex="-1"></button>
+
     <main class="workspace">
       <aside class="panel controls-panel">
-        <section class="control-section upload-section">
-          <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" hidden />
-          <button id="dropZone" class="drop-zone" type="button">
-            <span class="upload-icon" aria-hidden="true">↑</span>
-            <strong>拖曳图片到这里</strong>
-            <span>或点击选择图片</span>
-            <small>支持 JPG · PNG · WebP</small>
-          </button>
-        </section>
-
         <section class="control-section">
           <div class="section-heading"><h2>裁切比例</h2><button id="resetCropBtn" class="text-button" type="button" disabled>重置</button></div>
           <div class="ratio-grid" id="ratioGrid">
@@ -87,10 +81,9 @@
 
           <div id="editorStage" class="editor-stage" aria-label="图片裁切编辑区">
             <div id="emptyState" class="empty-state">
-              <div class="empty-icon">▧</div>
-              <h3>上传图片后开始处理</h3>
-              <p>图片只在你的浏览器本机处理，不会上传服务器。</p>
-              <button id="emptyUploadBtn" class="secondary-button" type="button">选择图片</button>
+              <div class="empty-icon">↑</div>
+              <h3>拖移图片到这里开始处理</h3>
+              <p>或点击这里选择图片 · 支持 JPG、PNG、WebP · 图片只在浏览器本机处理</p>
             </div>
             <img id="editorImage" alt="待编辑图片" draggable="false" />
             <div id="cropBox" class="crop-box" hidden>
@@ -104,7 +97,7 @@
 
           <div class="editor-footer">
             <div class="crop-readout"><span>裁切区域</span><strong id="cropReadout">—</strong></div>
-            <div id="statusMessage" class="status-message" role="status" aria-live="polite">选择一张图片开始</div>
+            <div id="statusMessage" class="status-message" role="status" aria-live="polite">拖移图片到编辑区，或点击编辑区选择图片</div>
           </div>
         </div>
 
@@ -149,7 +142,7 @@
         <section class="panel tips-card">
           <h2><span aria-hidden="true">◉</span> 使用提示</h2>
           <ol>
-            <li>图片在浏览器本机处理，不会上传服务器。</li>
+            <li>直接把图片拖进中间编辑区，或点击编辑区选择图片。</li>
             <li>尺标固定在编辑工作区左上角，拖动或缩放原图都不会移动尺标。</li>
             <li>参考线可直接输入 X / Y 像素坐标精确定位，并可锁定防止误拖。</li>
             <li>参考线以固定尺标为基准；开启吸附后白框会自动靠齐参考线。</li>
@@ -160,15 +153,16 @@
     </main>
   </div>
 
-  <script src="./app.js?v=20260929-1325"></script>
-  <script src="./workspace-zoom-core.js?v=20260929-1325"></script>
-  <script src="./workspace-zoom.js?v=20260929-1325"></script>
-  <script src="./precision-crop.js?v=20260929-1325"></script>
-  <script src="./drag-fix.js?v=20260929-1325"></script>
-  <script src="./interaction-fix.js?v=20260929-1325"></script>
-  <script src="./guides.js?v=20260929-1325"></script>
-  <script src="./origin-align.js?v=20260929-1325"></script>
-  <script src="./guide-coordinate.js?v=20260929-1325"></script>
-  <script src="./workspace-precision.js?v=20260929-1325"></script>
+  <script src="./app.js?v=20260929-1335"></script>
+  <script src="./central-upload.js?v=20260929-1335"></script>
+  <script src="./workspace-zoom-core.js?v=20260929-1335"></script>
+  <script src="./workspace-zoom.js?v=20260929-1335"></script>
+  <script src="./precision-crop.js?v=20260929-1335"></script>
+  <script src="./drag-fix.js?v=20260929-1335"></script>
+  <script src="./interaction-fix.js?v=20260929-1335"></script>
+  <script src="./guides.js?v=20260929-1335"></script>
+  <script src="./origin-align.js?v=20260929-1335"></script>
+  <script src="./guide-coordinate.js?v=20260929-1335"></script>
+  <script src="./workspace-precision.js?v=20260929-1335"></script>
 </body>
 </html>
