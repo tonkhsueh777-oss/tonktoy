@@ -31,6 +31,7 @@
     const newZ = clampZoom(newZoom);
     const anchor = Number.isFinite(Number(origin)) ? Number(origin) : 0;
     const old = Number.isFinite(Number(oldScroll)) ? Number(oldScroll) : 0;
+    if (old <= 0.5) return 0;
     const logicalStart = anchor + (old - anchor) / oldZ;
     const next = anchor + (logicalStart - anchor) * newZ;
     return Math.max(0, Math.round(next * 1000) / 1000);
