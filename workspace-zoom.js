@@ -94,24 +94,21 @@
 
   function getZoom() { return S.viewZoom || 1; }
 
-  function preserveAnchoredScroll(oldScroll, viewportSize, oldZoom, newZoom, origin) {
-    const logicalCenter = origin + (oldScroll + viewportSize / 2 - origin) / oldZoom;
-    return origin + (logicalCenter - origin) * newZoom - viewportSize / 2;
-  }
-
   function setZoom(next) {
     const normalized = Core.LEVELS.includes(Number(next)) ? Number(next) : Core.clampZoom(next);
     const old = getZoom();
     if (normalized === old) return;
     const oldLeft = viewport.scrollLeft;
     const oldTop = viewport.scrollTop;
-    const vw = viewport.clientWidth;
-    const vh = viewport.clientHeight;
     const origin = logicalOrigin();
     S.viewZoom = normalized;
     syncVisualSize();
-    viewport.scrollLeft = Math.max(0, preserveAnchoredScroll(oldLeft, vw, old, normalized, origin.x));
-    viewport.scrollTop = Math.max(0, preserveAnchoredScroll(oldTop, vh, old, normalized, origin.y));
+
+    // Keep the visible top-left logical position stable. In particular, when the
+    // viewport is at 0,0, zooming to 200%/300%/400% must NOT auto-scroll to center.
+    viewport.scrollLeft = Core.preserveViewportStart(oldLeft, old, normalized, origin.x);
+    viewport.scrollTop = Core.preserveViewportStart(oldTop, old, normalized, origin.y);
+
     menu.classList.remove('open');
     window.dispatchEvent(new CustomEvent('workspaceviewzoomchange', { detail: { zoom: normalized } }));
   }
