@@ -11,6 +11,12 @@ test('loads fixed ruler overlay after workspace precision', () => {
   assert.ok(html.indexOf('fixed-rulers.js') > html.indexOf('workspace-precision.js'));
 });
 
+test('workspace zoom keeps ruler origin visually fixed while content scales', () => {
+  const js = fs.readFileSync(path.join(root, 'workspace-zoom.js'), 'utf8');
+  assert.ok(js.includes('logicalOrigin'));
+  assert.ok(js.includes('1 - S.viewZoom'));
+});
+
 test('fixed ruler implementation is viewport anchored, not visually scaled with stage', () => {
   const js = fs.readFileSync(path.join(root, 'fixed-rulers.js'), 'utf8');
   assert.ok(js.includes('viewport.scrollLeft'));
