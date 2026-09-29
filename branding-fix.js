@@ -13,10 +13,10 @@
   style.id = 'xuedaoFullImageFix';
   style.textContent = `
     #xuedaoSidebarCard{background:#07111f!important;overflow:hidden!important}
-    #xuedaoSidebarCard img{display:block!important;width:100%!important;height:auto!important;max-height:none!important;object-fit:contain!important;object-position:center top!important;background:#07111f!important}
+    #xuedaoSidebarCard img{display:block!important;width:100%!important;height:auto!important;max-height:none!important;object-fit:contain!important;object-position:center top!important;background:#07111f!important;image-rendering:auto!important}
   `;
   document.head.appendChild(style);
 
-  img.src = './assets/xuedao.webp?v=20260929-1510';
+  img.src = './assets/xuedao.webp?v=20260929-1530';
   img.alt = '薛导帮你裁剪图片';
 })();
