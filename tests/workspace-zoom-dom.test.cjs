@@ -33,3 +33,10 @@ test('loads numeric X/Y guide positioning before final precision controller', ()
   assert.equal(guideSource.includes('guidesLocked'), true);
   assert.equal(guideSource.includes("classList.add('numeric-guide')"), true);
 });
+
+test('uses the editor empty state as the visible upload target', () => {
+  assert.equal(html.includes('拖移图片到这里开始处理'), true);
+  assert.equal(html.includes('central-upload.js'), true);
+  assert.match(html, /id="dropZone"[^>]*hidden/);
+  assert.match(html, /id="emptyUploadBtn"[^>]*hidden/);
+});
