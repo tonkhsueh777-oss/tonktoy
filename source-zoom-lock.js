@@ -61,7 +61,8 @@
     S.view.x = anchorX - relX * S.view.width;
     S.view.y = anchorY - relY * S.view.height;
 
-    // Do not force the image back up to crop size. Shrinking below 100% is intentional.
+    // Shrinking is allowed, but the image's left/top edges may never cross ruler 0,0.
+    window.__workspacePrecision?.clampImageToRulerBounds?.();
     drawImageView();
     updateZoomUI();
     markDirty(message);
