@@ -37,6 +37,33 @@ const E = {
   clear: $('#clearBtn'),
 };
 
+const folderRow = document.createElement('div');
+folderRow.className = 'download-folder-row';
+folderRow.innerHTML = '<button id="chooseDownloadFolder" type="button">选择保存资料夹</button><span id="downloadFolderName">未设定，下载时选择位置</span>';
+E.download.before(folderRow);
+E.folderButton = $('#chooseDownloadFolder');
+E.folderName = $('#downloadFolderName');
+let downloadFolder = null;
+const folderStyle = document.createElement('style');
+folderStyle.textContent = '.download-folder-row{display:flex;align-items:center;gap:9px;margin-top:13px;min-width:0}.download-folder-row button{flex:none;padding:8px 10px;border:1px solid #36536f;border-radius:8px;background:#0c1827;color:#dce9f8;cursor:pointer}.download-folder-row button:hover{border-color:#4c86ca}.download-folder-row span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#9aacc0;font-size:12px}';
+document.head.appendChild(folderStyle);
+if (!window.showDirectoryPicker) {
+  E.folderButton.disabled = true;
+  E.folderName.textContent = '此浏览器请在下载时选择位置';
+}
+
+E.folderButton.onclick = async () => {
+  try {
+    const folder = await window.showDirectoryPicker({ mode: 'readwrite' });
+    downloadFolder = folder;
+    E.folderName.textContent = folder.name;
+    E.folderName.title = folder.name;
+    setStatus(`已设定保存资料夹：${folder.name}`, 'success');
+  } catch (error) {
+    if (error?.name !== 'AbortError') setStatus('无法选取资料夹，请检查浏览器权限。', 'error');
+  }
+};
+
 const apply = document.createElement('button');
 apply.id = 'applyCropBtn';
 apply.className = 'icon-button';
@@ -605,6 +632,13 @@ function outputName() {
 }
 
 async function saveBlob(blob, suggestedName) {
+  if (downloadFolder) {
+    const file = await downloadFolder.getFileHandle(suggestedName, { create: true });
+    const writable = await file.createWritable();
+    await writable.write(blob);
+    await writable.close();
+    return true;
+  }
   if (window.showSaveFilePicker && window.isSecureContext) {
     try {
       const handle = await window.showSaveFilePicker({
@@ -640,9 +674,9 @@ async function downloadImage() {
     if (!blob) return;
     const name = outputName();
     const saved = await saveBlob(blob, name);
-    setStatus(saved ? `已准备下载：${name}` : '已取消保存，图片仍可继续编辑。', saved ? 'success' : '');
+    setStatus(saved ? `${downloadFolder ? `已保存到 ${downloadFolder.name}：` : '已准备下载：'}${name}` : '已取消保存，图片仍可继续编辑。', saved ? 'success' : '');
   } catch (error) {
-    setStatus('保存失败，请重试或换用浏览器下载。', 'error');
+    setStatus(downloadFolder ? '无法写入所选资料夹，请重新选择资料夹后再试。' : '保存失败，请重试或换用浏览器下载。', 'error');
   } finally {
     S.saving = false;
     syncWorkflow();
