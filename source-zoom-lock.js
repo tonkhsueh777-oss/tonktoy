@@ -61,7 +61,8 @@
     S.view.x = anchorX - relX * S.view.width;
     S.view.y = anchorY - relY * S.view.height;
 
-    window.__workspacePrecision?.clampImageToRulerBounds?.();
+    if (S.view.width >= S.crop.width && S.view.height >= S.crop.height) clampViewIntoFrame();
+    else window.__workspacePrecision?.clampImageToRulerBounds?.();
     drawImageView();
     updateZoomUI();
     markDirty(message);

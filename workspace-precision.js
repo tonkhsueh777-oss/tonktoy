@@ -212,6 +212,14 @@
       action = { type:'guide', pointerId:event.pointerId, guide:createGuide(axis,value) };
       return;
     }
+    const panLockedImage = !!crop && !event.target.closest('[data-resize]') &&
+      (stage.classList.contains('image-locked') || window.SourceZoomLock?.locked);
+    if (panLockedImage) {
+      event.preventDefault(); event.stopImmediatePropagation();
+      action = { type:'image', pointerId:event.pointerId, start:point, view:{...S.view} };
+      stage.style.cursor='grabbing';
+      return;
+    }
     if (crop && S.crop) {
       event.preventDefault(); event.stopImmediatePropagation();
       const handle = event.target.closest('[data-resize]');
@@ -223,7 +231,7 @@
       action = { type:'crop', pointerId:event.pointerId, mode, start:point, crop:{...S.crop}, bounds:imageBounds() };
       return;
     }
-    if (stage.classList.contains('image-locked') || event.target.closest('button,input')) return;
+    if (event.target.closest('button,input')) return;
     event.preventDefault(); event.stopImmediatePropagation();
     action = { type:'image', pointerId:event.pointerId, start:point, view:{...S.view} };
     stage.style.cursor='grabbing';
@@ -236,8 +244,10 @@
     if (action.type === 'image') {
       S.view.x = action.view.x + (point.x-action.start.x);
       S.view.y = action.view.y + (point.y-action.start.y);
-      clampImageToRulerBounds();
+      if (S.view.width >= S.crop.width && S.view.height >= S.crop.height) clampViewIntoFrame();
+      else clampImageToRulerBounds();
       drawImageView();
+      renderCrop();
     } else if (action.type === 'crop') {
       S.crop = cropFromPointer(point);
       renderCrop();
@@ -290,7 +300,8 @@
   resetImageView=function zoomSafeResetImageView(){
     const first=!S.view.width||!S.view.height||!S.fitScale;
     if (fitRequested||first) { fitRequested=false; if (alignToRulerOrigin()) return; }
-    clampImageToRulerBounds();
+    if (S.crop && S.view.width >= S.crop.width && S.view.height >= S.crop.height) clampViewIntoFrame();
+    else clampImageToRulerBounds();
     drawImageView(); updateZoomUI();
   };
 
