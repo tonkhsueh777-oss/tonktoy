@@ -13,12 +13,13 @@ const E = {
 };
 const MAX_INPUT_BYTES = 1024 * 1024 * 1024;
 const CORE_URL = new URL('./vendor/core/ffmpeg-core.js', import.meta.url).href;
-const WASM_GZIP_URL = new URL('./vendor/core/ffmpeg-core.wasm.gz', import.meta.url).href;
+const WASM_GZIP_URLS = [0, 1].map((part) => new URL(`./vendor/core/ffmpeg-core.wasm.gz.${part}`, import.meta.url).href);
 
 async function loadWasmURL() {
-  const response = await fetch(WASM_GZIP_URL);
-  if (!response.ok) throw new Error('转档核心下载失败');
-  const stream = response.body.pipeThrough(new DecompressionStream('gzip'));
+  const responses = await Promise.all(WASM_GZIP_URLS.map((url) => fetch(url)));
+  if (responses.some((response) => !response.ok)) throw new Error('转档核心下载失败');
+  const chunks = await Promise.all(responses.map((response) => response.arrayBuffer()));
+  const stream = new Blob(chunks).stream().pipeThrough(new DecompressionStream('gzip'));
   const wasm = await new Response(stream).blob();
   return URL.createObjectURL(new Blob([wasm], { type: 'application/wasm' }));
 }
