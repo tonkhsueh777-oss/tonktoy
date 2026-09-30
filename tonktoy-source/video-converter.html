@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#07111f" />
+  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
+  <meta name="description" content="在浏览器本机将 MOV 影片转成 MP4，无需上传影片。" />
+  <title>MOV 转 MP4 · 薛导工具</title>
+  <link rel="stylesheet" href="./styles.css?v=20260930-polish-2" />
+  <link rel="stylesheet" href="./video-converter.css?v=20260930-3" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"><svg viewBox="0 0 48 48"><rect x="4" y="4" width="40" height="40" rx="10" fill="currentColor" opacity=".18"/><path d="M12 14h24v20H12zM19 14v20M12 21h24M12 28h24" fill="none" stroke="currentColor" stroke-width="2"/></svg></div>
+        <div><h1>我是薛导，我来帮你转影片。</h1><p>MOV 转 MP4 · 在浏览器本机完成</p></div>
+      </div>
+      <nav class="mode-tabs" aria-label="处理模式">
+        <a class="mode-tab" href="./index.html"><span class="tab-icon">▣</span> 单张处理</a>
+        <span class="mode-tab active" aria-current="page"><span class="tab-icon">▹</span> MOV 转 MP4</span>
+        <button class="mode-tab disabled" type="button" disabled title="即将推出"><span class="tab-icon">▱</span> 批量处理 <span class="coming">即将推出</span></button>
+        <button class="mode-tab disabled" type="button" disabled title="即将推出"><span class="gif-badge">GIF</span> GIF 动图 <span class="coming">即将推出</span></button>
+      </nav>
+      <div class="privacy-pill" title="影片不会上传服务器"><span class="privacy-dot"></span> 本机处理</div>
+    </header>
+
+    <main class="video-workspace">
+      <div class="video-heading"><div><p class="video-eyebrow">影片转档</p><h2>MOV 转 MP4</h2><p>选择 MOV 影片，转成更容易分享和播放的 MP4。影片留在你的装置上。</p></div><span class="video-output-tag">输出 H.264 / AAC · MP4</span></div>
+      <div class="video-grid">
+        <section class="panel video-input-panel" aria-labelledby="videoInputTitle">
+          <div class="video-panel-head"><span class="video-step">01</span><div><h3 id="videoInputTitle">选择 MOV 影片</h3><p>拖到下方，或点击选择档案</p></div></div>
+          <input id="movInput" type="file" accept=".mov,video/quicktime" hidden />
+          <button id="movDrop" type="button" class="mov-drop" aria-label="选择 MOV 影片">
+            <span class="mov-drop-icon" aria-hidden="true">▹</span>
+            <strong id="movDropTitle">拖入 MOV 影片</strong>
+            <span id="movDropHint">或点击选择档案</span>
+          </button>
+          <div id="movDetails" class="mov-details" hidden><div><span>来源档案</span><strong id="movName">—</strong></div><div><span>档案大小</span><strong id="movSize">—</strong></div></div>
+          <div class="video-settings" aria-label="输出设定">
+            <label>压缩程度<select id="compressionPreset"><option value="original">原画质（相容时快速转换）</option><option value="balanced">适度压缩</option><option value="small">尽量缩小档案</option></select></label>
+            <label>影片尺寸<select id="sizePreset"><option value="original">原尺寸</option><option value="1080">最大 1080p</option><option value="720">最大 720p</option><option value="480">最大 480p</option><option value="custom">自订最大尺寸</option></select></label>
+            <div id="customSize" class="custom-size" hidden><label>最大宽度<input id="maxWidth" type="number" min="2" max="7680" step="1" value="1280" inputmode="numeric" /> px</label><label>最大高度<input id="maxHeight" type="number" min="2" max="7680" step="1" value="720" inputmode="numeric" /> px</label></div>
+            <p>缩小尺寸会保持原比例；较小的影片不会被放大。</p>
+          </div>
+          <div class="video-actions"><button id="convertBtn" class="download-button" type="button" disabled>开始转档</button><button id="cancelBtn" class="text-button" type="button" hidden>取消转档</button></div>
+          <div id="videoProgressWrap" class="video-progress-wrap" hidden><div class="video-progress-top"><span id="videoPhase">准备中…</span><strong id="videoPercent">—</strong></div><progress id="videoProgress" max="100" value="0"></progress></div>
+          <p id="videoStatus" class="video-status" role="status" aria-live="polite">请选择 MOV 影片开始。</p>
+        </section>
+        <section class="panel video-output-panel" aria-labelledby="videoOutputTitle">
+          <div class="video-panel-head"><span class="video-step">02</span><div><h3 id="videoOutputTitle">取得 MP4</h3><p>转档完成后可预览与下载</p></div></div>
+          <div id="videoEmpty" class="video-empty"><span aria-hidden="true">▶</span><p>等待转档结果</p></div>
+          <video id="videoPreview" controls playsinline hidden></video>
+          <div id="outputDetails" class="mov-details" hidden><div><span>输出档案</span><strong id="outputName">—</strong></div><div><span>影片尺寸</span><strong id="outputResolution">—</strong></div><div><span>档案大小</span><strong id="outputSize">—</strong></div></div>
+          <a id="videoDownload" class="download-button video-download" href="#" download hidden>↓ 下载 MP4</a>
+        </section>
+      </div>
+      <p class="video-footnote">首次转档需要载入约 31 MB 的本机处理核心。大影片处理较慢；建议 500 MB 以下，超过 1 GB 的档案请使用桌面转档软件。部分受保护或特殊编码的 MOV 可能无法转换。</p>
+    </main>
+  </div>
+  <script type="module" src="./video-converter.js?v=20260930-5"></script>
+</body>
+</html>
