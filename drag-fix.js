@@ -276,7 +276,7 @@
 
   let imageDrag=null;
   function startImageDrag(event) {
-    if (!S.file || !S.crop || event.button!==0 || stage.classList.contains('image-locked') || window.SourceZoomLock?.locked || event.target.closest('#cropBox, button, input, #zoomControls')) return;
+    if (!S.file || !S.crop || event.button!==0 || event.target.closest('#cropBox, button, input, #zoomControls')) return;
     event.preventDefault(); imageDrag={x:event.clientX,y:event.clientY,moved:false}; stage.style.cursor='grabbing'; document.body.style.userSelect='none';
   }
   function moveImageDrag(event) {
