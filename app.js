@@ -633,11 +633,24 @@ function outputName() {
 
 async function saveBlob(blob, suggestedName) {
   if (downloadFolder) {
-    const file = await downloadFolder.getFileHandle(suggestedName, { create: true });
+    const dot = suggestedName.lastIndexOf('.');
+    const base = suggestedName.slice(0, dot);
+    const ext = suggestedName.slice(dot);
+    let name = suggestedName;
+    for (let number = 1; ; number += 1) {
+      try {
+        await downloadFolder.getFileHandle(name);
+        name = `${base}-${number}${ext}`;
+      } catch (error) {
+        if (error?.name !== 'NotFoundError') throw error;
+        break;
+      }
+    }
+    const file = await downloadFolder.getFileHandle(name, { create: true });
     const writable = await file.createWritable();
     await writable.write(blob);
     await writable.close();
-    return true;
+    return name;
   }
   if (window.showSaveFilePicker && window.isSecureContext) {
     try {
@@ -674,7 +687,7 @@ async function downloadImage() {
     if (!blob) return;
     const name = outputName();
     const saved = await saveBlob(blob, name);
-    setStatus(saved ? `${downloadFolder ? `已保存到 ${downloadFolder.name}：` : '已准备下载：'}${name}` : '已取消保存，图片仍可继续编辑。', saved ? 'success' : '');
+    setStatus(saved ? `${downloadFolder ? `已保存到 ${downloadFolder.name}：` : '已准备下载：'}${typeof saved === 'string' ? saved : name}` : '已取消保存，图片仍可继续编辑。', saved ? 'success' : '');
   } catch (error) {
     setStatus(downloadFolder ? '无法写入所选资料夹，请重新选择资料夹后再试。' : '保存失败，请重试或换用浏览器下载。', 'error');
   } finally {
