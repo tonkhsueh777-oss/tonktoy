@@ -28,7 +28,7 @@
     .precision-guide::after{content:attr(data-label);position:absolute;background:rgba(3,18,31,.96);border:1px solid #2a91cf;color:#c9efff;font-size:9px;line-height:1;padding:3px 5px;border-radius:4px;white-space:nowrap}
     .precision-guide.h::after{left:6px;top:4px}.precision-guide.v::after{left:4px;top:6px}
     .precision-guide.hidden-guide{display:none}
-    #editorStage.image-locked{cursor:grab}
+    #editorStage.image-locked{cursor:default!important}
   `;
   document.head.appendChild(style);
 
@@ -185,6 +185,17 @@
     guideDrag = null;
   }, true);
 
+  function isPrecisionTarget(target) {
+    return !!target?.closest?.('#cropBox,.precision-guide,.ruler-x,.ruler-y,.ruler-corner');
+  }
+
+  stage.addEventListener('pointerdown', (event) => {
+    if (!imageLocked || isPrecisionTarget(event.target)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    S.dragging = null;
+  }, true);
+
   stage.addEventListener('wheel', (event) => {
     if (!imageLocked) return;
     event.preventDefault();
@@ -193,9 +204,9 @@
 
   function enforceLockedView() {
     if (!imageLocked || !lockedView || !S.file) return;
-    const changed = ['width','height','scale'].some((key) => Math.abs((S.view[key] || 0) - (lockedView[key] || 0)) > 0.01);
+    const changed = ['x','y','width','height','scale'].some((key) => Math.abs((S.view[key] || 0) - (lockedView[key] || 0)) > 0.01);
     if (!changed) return;
-    for (const key of ['width','height','scale']) S.view[key] = lockedView[key];
+    Object.assign(S.view, lockedView);
     drawImageView();
   }
 
@@ -218,7 +229,7 @@
       Z.out.disabled = imageLocked || !S.file;
     }
     if (E.fit) E.fit.disabled = imageLocked || !S.file;
-    setStatus(imageLocked ? '原图倍率已锁定；仍可拖动原图定位。' : '原图已解锁：可以拖动和缩放原图。');
+    setStatus(imageLocked ? '原图已锁定：尺标、参考线和原图位置都保持固定。' : '原图已解锁：可以拖动和缩放原图。');
   }
 
   imageLockToggle.addEventListener('click', () => setImageLocked(!imageLocked));
