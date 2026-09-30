@@ -1,2 +1,175 @@
 <!doctype html>
-<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>薛导工具</title><style>body{margin:0;background:#07111f;color:#e8f3ff;font:16px system-ui,sans-serif;min-height:100vh;display:grid;place-items:center}main{width:min(720px,calc(100% - 40px));padding:36px;border:1px solid #294665;border-radius:18px;background:#0b1b2c;box-shadow:0 20px 60px #0006}h1{margin-top:0}p{color:#9db5cc}nav{display:flex;gap:14px;flex-wrap:wrap;margin-top:28px}a{padding:14px 18px;border-radius:10px;background:#1f76d2;color:#fff;text-decoration:none;font-weight:700}a.secondary{background:#16314c}</style><main><h1>我是薛导，我来帮你处理素材。</h1><p>选择你要使用的工具。</p><nav><a href="./tonktoy-source/index.html">图片裁切、压缩与格式转换</a><a class="secondary" href="./tonktoy-source/video-converter.html">MOV 转 MP4（压缩与缩小尺寸）</a></nav></main></html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#07111f" />
+  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
+  <meta name="description" content="�祆㦤餈鞱����憿萄㦛�������偕撖貉��氬���蝻押��聢撘讛蓮�Ｖ��賢�撌亙���" />
+  <title>�烐糓�𥕦紡嚗峕��亙葬雿㰘��芸㦛����</title>
+  <link rel="stylesheet" href="./styles.css?v=20260930-polish-2" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 48 48" role="img"><rect x="4" y="4" width="40" height="40" rx="10" fill="currentColor" opacity=".18"/><path d="M9 34 19 22l8 8 5-5 7 9H9Z" fill="currentColor"/><circle cx="17" cy="15" r="4" fill="currentColor"/></svg>
+        </div>
+        <div>
+          <h1>�烐糓�𥕦紡嚗峕��亙葬雿㰘��芸㦛����</h1>
+          <p>鋆�� 繚 靚�㟲撠箏站 繚 �讠憬 繚 �澆�頧祆揢 繚 �芾恥�賢�</p>
+        </div>
+      </div>
+      <nav class="mode-tabs" aria-label="憭��璅∪�">
+        <button class="mode-tab active" type="button"><span class="tab-icon">��</span> �訫�憭��</button>
+        <a class="mode-tab" href="./video-converter.html"><span class="tab-icon">��</span> MOV 頧� MP4</a>
+        <button class="mode-tab disabled" type="button" disabled title="�喳��典枂"><span class="tab-icon">��</span> �寥�憭�� <span class="coming">�喳��典枂</span></button>
+        <button class="mode-tab disabled" type="button" disabled title="�喳��典枂"><span class="gif-badge">GIF</span> GIF �典㦛 <span class="coming">�喳��典枂</span></button>
+      </nav>
+      <div class="privacy-pill" title="�曄�銝滢�銝𠹺��滚𦛚��"><span class="privacy-dot"></span> �祆㦤憭��</div>
+    </header>
+
+    <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" hidden />
+    <button id="dropZone" type="button" hidden aria-hidden="true" tabindex="-1"></button>
+    <button id="emptyUploadBtn" type="button" hidden aria-hidden="true" tabindex="-1"></button>
+
+    <main class="workspace">
+      <aside class="panel controls-panel">
+        <section class="control-section">
+          <div class="section-heading"><h2>鋆��瘥𥪯�</h2><button id="resetCropBtn" class="text-button" type="button" disabled>�滨蔭</button></div>
+          <div class="ratio-grid" id="ratioGrid">
+            <button class="ratio-btn active" data-aspect="free" type="button"><span class="ratio-shape free"></span>�芰眏</button>
+            <button class="ratio-btn" data-aspect="1.7777777778" type="button"><span class="ratio-shape wide"></span>16:9</button>
+            <button class="ratio-btn" data-aspect="1.3333333333" type="button"><span class="ratio-shape standard"></span>4:3</button>
+            <button class="ratio-btn" data-aspect="1" type="button"><span class="ratio-shape square"></span>1:1</button>
+            <button class="ratio-btn" data-aspect="0.75" type="button"><span class="ratio-shape portrait"></span>3:4</button>
+            <button class="ratio-btn" data-aspect="0.5625" type="button"><span class="ratio-shape tall"></span>9:16</button>
+          </div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-heading"><h2>撠箏站霈曄蔭</h2><label class="check-label"><input id="lockRatio" type="checkbox" checked /> <span>���瘥𥪯�</span></label></div>
+          <div class="dimension-grid">
+            <label>摰賢漲<div class="number-field"><input id="outputWidth" type="number" min="1" max="12000" inputmode="numeric" value="1200" /><span>px</span></div></label>
+            <label>擃睃漲<div class="number-field"><input id="outputHeight" type="number" min="1" max="12000" inputmode="numeric" value="750" /><span>px</span></div></label>
+          </div>
+          <p class="microcopy">�航��乩遙�誩偕撖賂�����𦒘�蝏湔�敶枏�摰賡�瘥𥪯���</p>
+        </section>
+
+        <section class="control-section">
+          <h2>颲枏枂�澆�</h2>
+          <div class="format-group" role="radiogroup" aria-label="颲枏枂�澆�">
+            <label class="format-option"><input type="radio" name="format" value="jpg" checked /><span>JPG</span></label>
+            <label class="format-option"><input type="radio" name="format" value="png" /><span>PNG</span></label>
+            <label class="format-option"><input type="radio" name="format" value="webp" /><span>WebP</span></label>
+          </div>
+        </section>
+
+        <section class="control-section quality-section">
+          <div class="section-heading"><h2>�曄���捶</h2><strong id="qualityValue">80%</strong></div>
+          <input id="qualityRange" class="quality-range" type="range" min="10" max="100" step="1" value="80" />
+          <div class="range-labels"><span>颲��獢��</span><span>�刻�</span><span>擃条𤫇韐�</span></div>
+          <p id="qualityHint" class="microcopy">隞�蔣�� JPG / WebP嚗𢏺NG 銝餉��朞�蝻拙�撠箏站�滢�雿梶妖��</p>
+        </section>
+      </aside>
+
+      <section class="main-column">
+        <div class="panel editor-card">
+          <div class="editor-toolbar">
+            <div class="file-meta"><strong id="sourceName">撠𡁏𧊋�㗇𥋘�曄�</strong><span id="sourceInfo">��</span></div>
+            <div class="toolbar-actions"><button id="fitBtn" class="icon-button" type="button" disabled title="�齿鰵���">���</button><button id="clearBtn" class="icon-button" type="button" disabled title="皜�膄�曄�">皜�膄</button></div>
+          </div>
+
+          <div id="editorStage" class="editor-stage" aria-label="�曄�鋆��蝻𤥁���">
+            <div id="emptyState" class="empty-state">
+              <div class="empty-icon">��</div>
+              <h3>�𣇉宏�曄��啗����憪见���</h3>
+              <p>�𣇉��餉��屸�㗇𥋘�曄� 繚 �舀� JPG��PNG��WebP 繚 �曄��芸銁瘚讛��冽𧋦�箏���</p>
+            </div>
+            <img id="editorImage" alt="敺��颲穃㦛��" draggable="false" />
+            <div id="cropBox" class="crop-box" hidden>
+              <div class="crop-grid-lines" aria-hidden="true"></div>
+              <span class="crop-handle nw" data-handle="nw"></span>
+              <span class="crop-handle ne" data-handle="ne"></span>
+              <span class="crop-handle sw" data-handle="sw"></span>
+              <span class="crop-handle se" data-handle="se"></span>
+            </div>
+          </div>
+
+          <div class="editor-footer">
+            <div class="crop-readout"><span>鋆���箏�</span><strong id="cropReadout">��</strong></div>
+            <div id="statusMessage" class="status-message" role="status" aria-live="polite">�𣇉宏�曄��啁�颲穃躹嚗峕��孵稬蝻𤥁��粹�㗇𥋘�曄�</div>
+          </div>
+        </div>
+
+        <div class="panel presets-card">
+          <div class="presets-heading"><h2>撣貊鍂撠箏站</h2><span>�孵稬敹恍�笔���</span></div>
+          <div class="preset-grid" id="presetGrid">
+            <button type="button" data-width="1200" data-height="750"><strong>蝵𤑳�銝餉�閫�</strong><span>1200�750</span></button>
+            <button type="button" data-width="900" data-height="675"><strong>雿𨅯�蝻拍裦��</strong><span>900�675</span></button>
+            <button type="button" data-width="1280" data-height="720"><strong>16:9 璅芸㦛</strong><span>1280�720</span></button>
+            <button type="button" data-width="1080" data-height="1080"><strong>�孵耦�曄�</strong><span>1080�1080</span></button>
+            <button type="button" data-width="1080" data-height="1920"><strong>�𧢲㦤蝡硋㦛</strong><span>1080�1920</span></button>
+            <button type="button" data-width="1242" data-height="1660"><strong>撠讐滯銋血偕撖�</strong><span>1242�1660</span></button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="right-column">
+        <section class="panel preview-card">
+          <h2>憭���𡡞�閫�</h2>
+          <div class="preview-frame"><div id="previewPlaceholder" class="preview-placeholder">蝑匧��曄�</div><img id="previewImage" alt="憭���𡡞�閫�" /></div>
+          <div class="preview-meta" id="previewMeta">��</div>
+
+          <div class="filename-block">
+            <label for="filenameInput">��辣�滨妍</label>
+            <div class="filename-field"><input id="filenameInput" type="text" value="image" maxlength="120" /><span id="extensionLabel">.jpg</span></div>
+            <label class="check-label keep-name"><input id="keepOriginalName" type="checkbox" /> <span>靽萘���﹝獢��蝘堆��芸𢆡�踵揢�舀﹝�㵪�</span></label>
+          </div>
+
+          <div class="output-summary">
+            <h3>憭���舘�霈�</h3>
+            <dl>
+              <div><dt>撠箏站</dt><dd id="summarySize">1200 � 750</dd></div>
+              <div><dt>�澆�</dt><dd id="summaryFormat">JPG</dd></div>
+              <div><dt>��捶</dt><dd id="summaryQuality">80%</dd></div>
+              <div><dt>獢��憭批�</dt><dd id="summaryFileSize">��</dd></div>
+            </dl>
+          </div>
+
+          <button id="downloadBtn" class="download-button" type="button" disabled><span aria-hidden="true">��</span> 銝贝蝸�曄�</button>
+        </section>
+
+        <section class="panel tips-card">
+          <h2><span aria-hidden="true">��</span> 雿輻鍂�鞟內</h2>
+          <ol>
+            <li>�湔𦻖�𠰴㦛���餈𥕢葉�渡�颲穃躹嚗峕��孵稬蝻𤥁��粹�㗇𥋘�曄���</li>
+            <li>銋笔虾隞亥斐銝𪙛�𨅯㦛������嘅�霂餃��𣂼��𡒊凒�亥������蝻拙僎銝贝蝸��</li>
+            <li>撠箸��箏��函�颲穃極雿𨅯躹撌虫�閫𡜐��硋𢆡�𣇉憬�曉��暸�銝滢�蝘餃𢆡撠箸���</li>
+            <li>����瑪�舐凒�亥��� X / Y �讐��鞉�蝎曄＆摰帋�嚗�僎�舫�摰𡁻俈甇Ｚ秤�硔��</li>
+            <li>�笔㦛蝻拇𦆮�臬銁 25%嚚�400% 靚�㟲嚗𤤿憬�暸��芸𤐄摰𡁏�靘页��笔㦛隞滚虾�硋𢆡��</li>
+            <li>����瑪隞亙𤐄摰𡁜偕��蛹�箏�嚗𥕦��臬𢙺����賣�隡朞䌊�券�朣𣂼���瑪��</li>
+            <li>撘��胯�屸�摰朞����憭批��滚�嚗𣬚蒾獢�蘨�賜宏�剁�摰賡�銝滢��孵���</li>
+          </ol>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <script src="./app.js?v=20260930-crop-fix"></script>
+  <script src="./central-upload.js?v=20260929-1355"></script>
+  <script src="./workspace-zoom-core.js?v=20260929-1425"></script>
+  <script src="./workspace-zoom.js?v=20260930-crop-fix"></script>
+  <script src="./precision-crop.js?v=20260929-1355"></script>
+  <script src="./drag-fix.js?v=20260930-polish-1"></script>
+  <script src="./interaction-fix.js?v=20260929-1355"></script>
+  <script src="./guides.js?v=20260929-1355"></script>
+  <script src="./origin-align.js?v=20260929-1355"></script>
+  <script src="./guide-coordinate.js?v=20260929-1355"></script>
+  <script src="./workspace-precision.js?v=20260929-1415"></script>
+  <script src="./fixed-rulers.js?v=20260929-1355"></script>
+  <script src="./source-zoom-lock.js?v=20260930-portrait"></script>
+  <script src="./url-import.js?v=20260930-crop-fix"></script>
+</body>
+</html>
