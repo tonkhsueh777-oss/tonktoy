@@ -107,8 +107,8 @@
       rangeKey = key;
       lockedXRange = roundUp(Math.max(BASE_X_RANGE, S.nw || 0));
       lockedYRange = roundUp(Math.max(BASE_Y_RANGE, S.nh || 0));
-      const measured = Math.round(stage.getBoundingClientRect().width);
-      lockedStageWidth = Math.max(520, measured || 520);
+      const measured = Math.round(window.WorkspaceViewZoom?.getViewport()?.clientWidth || stage.getBoundingClientRect().width);
+      lockedStageWidth = Math.max(320, measured || 320);
       stage.style.width = `${lockedStageWidth}px`;
       stage.style.minWidth = `${lockedStageWidth}px`;
       stage.style.maxWidth = 'none';

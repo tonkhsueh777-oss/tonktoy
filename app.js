@@ -102,6 +102,11 @@ const S = {
   dirty: false,
   timer: 0,
   token: 0,
+  loadToken: 0,
+  blob: null,
+  loading: false,
+  rendering: false,
+  saving: false,
 };
 
 const types = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -130,6 +135,35 @@ function setStatus(message, kind = '') {
   E.status.className = `status-message${kind ? ` ${kind}` : ''}`;
 }
 
+// All preview/export transitions share one revision. Stale encodes never publish.
+function syncWorkflow() {
+  const dims = validDims();
+  const ready = !!S.file && !!S.blob && !S.dirty && !S.loading && !S.rendering && !!dims;
+  E.download.disabled = !ready || S.saving;
+  E.download.textContent = S.saving ? '正在保存…' : '↓ 下载图片';
+  E.apply.disabled = !S.file || S.loading || S.rendering || !dims || (!S.dirty && !!S.blob);
+  E.apply.textContent = S.rendering ? '正在处理…' : '确认裁切';
+  E.preview.setAttribute('aria-busy', String(S.rendering));
+  const note = document.getElementById('previewState');
+  if (note) {
+    note.textContent = S.loading ? '正在读取图片…' : !S.file ? '尚未导入图片' : !dims ? '请检查输出尺寸' : S.rendering ? '正在生成预览…' : S.dirty ? '构图已变更 · 请确认裁切' : ready ? '预览已更新 · 可以下载' : '等待生成预览';
+    note.dataset.state = ready ? 'ready' : S.dirty ? 'pending' : 'idle';
+  }
+  const change = document.getElementById('changeImageBtn');
+  if (change) change.textContent = S.file ? '更换图片' : '选择图片';
+  E.w.setAttribute('aria-invalid', String(!Number.isInteger(Number(E.w.value)) || Number(E.w.value) < 1 || Number(E.w.value) > 12000));
+  E.h.setAttribute('aria-invalid', String(!Number.isInteger(Number(E.h.value)) || Number(E.h.value) < 1 || Number(E.h.value) > 12000));
+}
+
+function invalidatePreview() {
+  ++S.token;
+  clearTimeout(S.timer);
+  S.blob = null;
+  S.rendering = false;
+  E.sumFile.textContent = '—';
+  syncWorkflow();
+}
+
 function validDims() {
   const width = Number(E.w.value);
   const height = Number(E.h.value);
@@ -151,6 +185,21 @@ function summary() {
   E.ext.textContent = `.${currentExt()}`;
   E.qualityValue.textContent = fmt === 'png' ? '无损' : `${E.quality.value}%`;
   E.quality.disabled = fmt === 'png';
+  const ratioButtons = $$('.ratio-btn');
+  const activeRatio = ratioButtons.find((button) => button.classList.contains('active'));
+  if (activeRatio && activeRatio.dataset.aspect !== 'free' && validDims()) {
+    const ratio = Number(E.w.value) / Number(E.h.value);
+    if (Math.abs(Number(activeRatio.dataset.aspect) - ratio) > .002) {
+      const matching = ratioButtons.find((button) => Math.abs(Number(button.dataset.aspect) - ratio) < .002);
+      ratioButtons.forEach((button) => button.classList.toggle('active', button === matching || (!matching && button.dataset.aspect === 'free')));
+    }
+  }
+  ratioButtons.forEach((button) => button.setAttribute('aria-pressed', String(button.classList.contains('active'))));
+  $$('#presetGrid button').forEach((button) => {
+    const selected = button.dataset.width === E.w.value && button.dataset.height === E.h.value;
+    button.classList.toggle('selected', selected);
+    button.setAttribute('aria-pressed', String(selected));
+  });
   E.qualityHint.textContent = fmt === 'png'
     ? 'PNG 为无损输出，品质滑杆不生效；缩小尺寸可有效降低体积。'
     : fmt === 'webp'
@@ -282,15 +331,14 @@ function setZoomPercent(percent, message = '已缩放原图，请按「确认裁
 function markDirty(message = '已调整原图位置或缩放，请按「确认裁切」。') {
   if (!S.file) return;
   S.dirty = true;
-  E.apply.disabled = false;
-  E.download.disabled = true;
+  invalidatePreview();
   setStatus(message);
 }
 
 function requestRender() {
   summary();
-  if (!S.file || S.dirty) return;
-  clearTimeout(S.timer);
+  invalidatePreview();
+  if (!S.file || S.dirty || S.loading) return;
   S.timer = setTimeout(() => {
     render(true);
   }, 160);
@@ -314,41 +362,47 @@ function cropSourceRect() {
   };
 }
 
-function toBlob(canvas) {
+function toBlob(canvas, format = currentFormat(), quality = Number(E.quality.value)) {
   return new Promise((resolve, reject) => {
     canvas.toBlob(
       (blob) => (blob ? resolve(blob) : reject(new Error('浏览器无法输出这个图片格式。'))),
-      currentMime(),
-      currentFormat() === 'png' ? undefined : Number(E.quality.value) / 100,
+      ({ jpg: 'image/jpeg', png: 'image/png', webp: 'image/webp' })[format],
+      format === 'png' ? undefined : quality / 100,
     );
   });
 }
 
 async function render(quiet = true) {
-  if (!S.file || !S.crop) return null;
+  if (!S.file || !S.crop || S.loading) return null;
+  const token = ++S.token;
   const dims = validDims();
   if (!dims) {
     E.download.disabled = true;
     if (!quiet) setStatus('请输入 1～12000 之间的有效宽高。', 'error');
     return null;
   }
-  const token = ++S.token;
+  const format = currentFormat();
+  const mime = currentMime();
+  S.rendering = true;
+  syncWorkflow();
   try {
     const source = cropSourceRect();
     if (!source || source.sw <= 0 || source.sh <= 0) throw new Error('裁切区域无效，请重新调整。');
     const canvas = document.createElement('canvas');
     canvas.width = dims[0];
     canvas.height = dims[1];
-    const ctx = canvas.getContext('2d', { alpha: currentMime() !== 'image/jpeg' });
+    const ctx = canvas.getContext('2d', { alpha: mime !== 'image/jpeg' });
+    if (!ctx) throw new Error('输出尺寸过大，请减小宽高后重试。');
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    if (currentMime() === 'image/jpeg') {
+    if (mime === 'image/jpeg') {
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
     ctx.drawImage(E.img, source.sx, source.sy, source.sw, source.sh, 0, 0, canvas.width, canvas.height);
-    const blob = await toBlob(canvas);
+    const blob = await toBlob(canvas, format);
     if (token !== S.token) return null;
+    if (blob.type !== mime) throw new Error('浏览器不支持所选输出格式，请改用 PNG 或 JPG。');
     if (S.previewUrl) URL.revokeObjectURL(S.previewUrl);
     S.previewUrl = URL.createObjectURL(blob);
     E.preview.src = S.previewUrl;
@@ -356,26 +410,35 @@ async function render(quiet = true) {
     E.previewEmpty.style.display = 'none';
     E.previewMeta.textContent = `${dims[0]} × ${dims[1]}  |  ${currentFormat().toUpperCase()}  |  ${fmtBytes(blob.size)}`;
     E.sumFile.textContent = fmtBytes(blob.size);
-    E.download.disabled = false;
+    S.blob = blob;
+    S.dirty = false;
+    const savings = document.getElementById('sizeComparison');
+    if (savings) {
+      const percent = Math.round((1 - blob.size / S.file.size) * 100);
+      savings.textContent = percent >= 0 ? `比原文件小 ${percent}%` : `比原文件大 ${Math.abs(percent)}% · 可降低质量或尺寸`;
+    }
     summary();
     if (!quiet) setStatus('裁切已确认，处理完成，可以下载。', 'success');
     return blob;
   } catch (error) {
-    console.error(error);
-    E.download.disabled = true;
+    if (token !== S.token) return null;
+    S.blob = null;
+    S.dirty = true;
     setStatus(error.message || '图片处理失败，请重试。', 'error');
     return null;
+  } finally {
+    if (token === S.token) { S.rendering = false; syncWorkflow(); }
   }
 }
 
 async function confirmCrop() {
-  if (!S.file) return;
-  S.dirty = false;
-  E.apply.disabled = true;
-  await render(false);
+  if (!S.file || S.loading || S.rendering) return null;
+  return render(false);
 }
 
-function clearImage(show = true) {
+function clearImage(show = true, cancelLoad = true) {
+  if (cancelLoad) ++S.loadToken;
+  invalidatePreview();
   if (S.srcUrl) URL.revokeObjectURL(S.srcUrl);
   if (S.previewUrl) URL.revokeObjectURL(S.previewUrl);
   Object.assign(S, {
@@ -389,6 +452,9 @@ function clearImage(show = true) {
     view: { x: 0, y: 0, width: 0, height: 0, scale: 1 },
     dragging: null,
     dirty: false,
+    loading: false,
+    rendering: false,
+    blob: null,
   });
   E.img.removeAttribute('src');
   E.img.style.display = 'none';
@@ -412,56 +478,77 @@ function clearImage(show = true) {
   Z.out.disabled = true;
   Z.in.disabled = true;
   updateZoomUI();
-  if (show) setStatus('已清除图片。');
+  syncWorkflow();
+  const savings = document.getElementById('sizeComparison');
+  if (savings) savings.textContent = '';
+  if (show) setStatus('已清除图片，点击画布可重新选择。');
 }
 
 async function load(file) {
-  if (!file) return;
+  if (!file) return false;
   if (!types.has(file.type)) {
     setStatus('目前仅支持 JPG、PNG、WebP。', 'error');
-    return;
+    return false;
   }
-  clearImage(false);
-  S.file = file;
-  S.srcUrl = URL.createObjectURL(file);
-  E.sourceName.textContent = file.name;
-  E.sourceInfo.textContent = fmtBytes(file.size);
-  E.name.value = cleanName(file.name);
-  E.keep.checked = false;
-  E.name.disabled = false;
+  const request = ++S.loadToken;
+  const url = URL.createObjectURL(file);
+  const decoded = new Image();
+  S.loading = true;
+  invalidatePreview();
   setStatus('正在读取图片…');
-  await new Promise((resolve, reject) => {
-    E.img.onload = resolve;
-    E.img.onerror = reject;
-    E.img.src = S.srcUrl;
-  });
-  S.nw = E.img.naturalWidth;
-  S.nh = E.img.naturalHeight;
-  if (!S.nw || !S.nh) throw new Error('无法读取图片');
-  E.sourceInfo.textContent = `${S.nw} × ${S.nh}  |  ${fmtBytes(file.size)}`;
-  E.empty.style.display = 'none';
-  E.img.style.display = 'block';
-  E.reset.disabled = false;
-  E.fit.disabled = false;
-  E.clear.disabled = false;
-  E.apply.disabled = false;
-  Z.input.disabled = false;
-  Z.out.disabled = false;
-  Z.in.disabled = false;
-  const dims = validDims();
-  if (!dims) {
-    E.w.value = S.nw;
-    E.h.value = S.nh;
-  }
-  S.outRatio = outputRatio();
-  summary();
-  requestAnimationFrame(() => requestAnimationFrame(async () => {
+  try {
+    decoded.src = url;
+    await decoded.decode();
+    if (request !== S.loadToken) { URL.revokeObjectURL(url); return false; }
+    if (!decoded.naturalWidth || !decoded.naturalHeight) throw new Error('无法读取图片');
+    // Commit only after decoding succeeds: a damaged replacement keeps the old image.
+    clearImage(false, false);
+    S.loading = true;
+    S.file = file;
+    S.srcUrl = url;
+    S.nw = decoded.naturalWidth;
+    S.nh = decoded.naturalHeight;
+    E.img.src = url;
+    await E.img.decode();
+    if (request !== S.loadToken) return false;
+    E.sourceName.textContent = file.name;
+    E.sourceInfo.textContent = `${S.nw} × ${S.nh}  |  ${fmtBytes(file.size)}`;
+    E.name.value = cleanName(file.name);
+    E.keep.checked = false;
+    E.name.disabled = false;
+    E.empty.style.display = 'none';
+    E.img.style.display = 'block';
+    E.reset.disabled = E.fit.disabled = E.clear.disabled = false;
+    window.SourceZoomLock?.setLocked(false);
+    window.__precisionCropController?.setSizeLocked(false);
+    const imageLock = document.getElementById('imageLockToggle');
+    if (E.stage.classList.contains('image-locked')) imageLock?.click();
+    window.WorkspaceViewZoom?.setZoom(1);
+    const viewport = window.WorkspaceViewZoom?.getViewport();
+    if (viewport) { viewport.scrollLeft = 0; viewport.scrollTop = 0; }
+    if (!validDims()) { E.w.value = Math.min(S.nw, 12000); E.h.value = Math.min(S.nh, 12000); }
+    S.outRatio = outputRatio();
+    summary();
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    if (request !== S.loadToken) return false;
     S.crop = computeCropFrame();
-    drawCropFrame();
     resetImageView();
+    drawCropFrame();
+    S.loading = false;
     await confirmCrop();
-    setStatus('请先设定尺寸，再拖动或使用下方缩放滑杆调整原图，然后按「确认裁切」。', 'success');
-  }));
+    return request === S.loadToken;
+  } catch (error) {
+    if (S.srcUrl !== url) URL.revokeObjectURL(url);
+    if (request !== S.loadToken) return false;
+    S.loading = false;
+    if (S.srcUrl === url) clearImage(false);
+    else if (S.file) { S.dirty = true; syncWorkflow(); }
+    setStatus('无法读取这张图片，文件可能已损坏。请换一张 JPG、PNG 或 WebP。', 'error');
+    return false;
+  } finally {
+    if (request === S.loadToken) { S.loading = false; syncWorkflow(); }
+    E.file.value = '';
+  }
 }
 
 function selectRatio(aspect, button) {
@@ -484,6 +571,7 @@ function selectRatio(aspect, button) {
 }
 
 function syncDimensions(changed) {
+  invalidatePreview();
   const dims = validDims();
   if (!dims) {
     E.download.disabled = true;
@@ -544,12 +632,21 @@ async function saveBlob(blob, suggestedName) {
 }
 
 async function downloadImage() {
-  if (S.dirty) await confirmCrop();
-  const blob = await render(false);
-  if (!blob) return;
-  const name = outputName();
-  const saved = await saveBlob(blob, name);
-  if (saved) setStatus(`已准备下载：${name}`, 'success');
+  if (!S.file || S.saving || S.loading || !validDims()) return;
+  S.saving = true;
+  syncWorkflow();
+  try {
+    const blob = S.blob && !S.dirty ? S.blob : await confirmCrop();
+    if (!blob) return;
+    const name = outputName();
+    const saved = await saveBlob(blob, name);
+    setStatus(saved ? `已准备下载：${name}` : '已取消保存，图片仍可继续编辑。', saved ? 'success' : '');
+  } catch (error) {
+    setStatus('保存失败，请重试或换用浏览器下载。', 'error');
+  } finally {
+    S.saving = false;
+    syncWorkflow();
+  }
 }
 
 function startPan(event) {
@@ -662,3 +759,5 @@ window.addEventListener('beforeunload', () => {
 Z.out.disabled = true;
 Z.in.disabled = true;
 summary();
+
+syncWorkflow();

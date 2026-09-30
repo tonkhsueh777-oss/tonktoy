@@ -51,6 +51,7 @@
   }
 
   async function importFromUrl() {
+    if (button.disabled) return;
     const raw = input.value.trim();
     if (!raw) {
       setStatus('请先贴上图片网址。', 'error');
@@ -73,8 +74,12 @@
     button.textContent = '读取中…';
     setStatus('正在从图片网址读取图片…');
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    const initialLoad = S.loadToken;
     try {
       const response = await fetch(url.href, {
+        signal: controller.signal,
         method: 'GET',
         mode: 'cors',
         credentials: 'omit',
@@ -94,18 +99,20 @@
       });
 
       if (typeof load !== 'function') throw new Error('图片载入功能尚未准备好。');
-      await load(file);
-      setStatus('图片网址已载入，可以直接裁切、压缩并下载。', 'success');
+      if (S.loadToken !== initialLoad) return;
+      const loaded = await load(file);
+      if (loaded) setStatus('图片网址已载入，可以调整构图或下载。', 'success');
     } catch (error) {
-      console.error(error);
+      if (S.loadToken !== initialLoad) return;
       const isCors = error instanceof TypeError || /Failed to fetch|NetworkError|CORS/i.test(String(error?.message || ''));
       setStatus(
-        isCors
-          ? '这个图片网站禁止浏览器直接读取（CORS）。请换“直接图片网址”，或先下载图片再拖进来。'
+        error.name === 'AbortError' ? '图片网址读取超时，请重试，或下载图片后拖入画布。' : isCors
+          ? '读取失败，可能是网络连接或网站跨域限制（CORS）。请检查直接图片网址，或先下载图片再拖进来。'
           : (error?.message || '图片网址读取失败，请检查网址。'),
         'error',
       );
     } finally {
+      clearTimeout(timeout);
       button.disabled = false;
       input.disabled = false;
       button.textContent = originalText;
